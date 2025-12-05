@@ -1,4 +1,5 @@
 "use client";
+import { Dispatch, SetStateAction, ReactNode } from "react";
 
 import Link from "next/link";
 import {
@@ -20,8 +21,26 @@ import {
   Mail,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+interface SidebarProps {
+  isOpen: boolean;
+  setIsOpen: Dispatch<SetStateAction<boolean>>;
+}
 
-export default function AdminSidebar({ isOpen, setIsOpen }: any) {
+interface SidebarItemProps {
+  icon: any;
+  title: string;
+  link: string;
+  isOpen: boolean;
+}
+
+interface SidebarSectionProps {
+  title: string;
+  isOpen: boolean;
+}
+
+
+export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
+
   return (
     <aside
       className={`
@@ -125,7 +144,8 @@ export default function AdminSidebar({ isOpen, setIsOpen }: any) {
 /* COMPONENTS */
 /* ----------------------------------------------- */
 
-function SidebarItem({ icon: Icon, title, link, isOpen }: any) {
+function SidebarItem({ icon: Icon, title, link, isOpen }: SidebarItemProps) {
+
   const pathname = usePathname();
   const isActive = pathname === link;
 
@@ -168,7 +188,8 @@ function SidebarItem({ icon: Icon, title, link, isOpen }: any) {
   );
 }
 
-function SidebarSection({ title, isOpen }: any) {
+function SidebarSection({ title, isOpen }: SidebarSectionProps) {
+
   return (
     <div
       className={`
