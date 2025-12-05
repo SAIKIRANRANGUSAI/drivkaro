@@ -8,24 +8,31 @@ export async function POST(req) {
     await connectDB();
 
     const admin = await Admin.findOne({ email }).exec();
-    if (!admin) {
-      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+    if (!admin || admin.password !== password) {
+      return NextResponse.json(
+        { success: false, message: "Invalid credentials" },
+        { status: 401 }
+      );
     }
 
-    if (admin.password !== password) {
-      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
-    }
+    // create response
+    const res = NextResponse.json({ success: true });
 
-    const res = NextResponse.json({ message: "OK" });
-
-    res.headers.set(
-      "Set-Cookie",
-      `admin_token=${admin._id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`
-    );
+    // 🔥 SET COOKIE THAT THE MIDDLEWARE EXPECTS
+    res.cookies.set("adminLoggedIn", "1", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/", // VERY IMPORTANT
+      maxAge: 86400,
+    });
 
     return res;
   } catch (err) {
     console.error("Login error:", err);
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: "Server error" },
+      { status: 500 }
+    );
   }
 }

@@ -1,8 +1,16 @@
-// src/app/api/admin/logout/route.ts
 import { NextResponse } from "next/server";
 
 export async function POST() {
-  const res = NextResponse.json({ message: "Logged out" });
-  res.headers.set("Set-Cookie", `admin_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`);
+  const res = NextResponse.json({ success: true, message: "Logged out" });
+
+  // remove cookie
+  res.cookies.set("adminLoggedIn", "", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+
   return res;
 }
