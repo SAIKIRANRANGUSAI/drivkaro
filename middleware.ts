@@ -13,7 +13,7 @@ export function middleware(req: NextRequest) {
     const logged = req.cookies.get("adminLoggedIn")?.value;
 
     if (!logged) {
-      return NextResponse.redirect(new URL("/admin/login", req.url));
+      return NextResponse.redirect(new URL("/login", req.url));
     }
   }
 
