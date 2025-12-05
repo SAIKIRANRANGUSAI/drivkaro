@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, Mail } from "lucide-react";
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("admin@gmail.com");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
 
   const handleLogin = async () => {
     setErr("");
+
     try {
       const res = await fetch("/api/admin/login", {
         method: "POST",
@@ -23,7 +27,8 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = "/admin";
+      // ⭐ use router.push instead of window.location
+      router.push("/admin");
     } catch {
       setErr("Network error");
     }
