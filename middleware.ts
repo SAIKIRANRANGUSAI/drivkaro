@@ -1,0 +1,24 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function middleware(req: NextRequest) {
+  const isAdminPage = req.nextUrl.pathname.startsWith("/admin");
+
+  if (req.nextUrl.pathname.startsWith("/admin/login")) {
+    return NextResponse.next();
+  }
+
+  if (isAdminPage) {
+    const logged = req.cookies.get("adminLoggedIn")?.value;
+
+    if (!logged) {
+      return NextResponse.redirect(new URL("/admin/login", req.url));
+    }
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/admin/:path*"]
+};

@@ -1,0 +1,122 @@
+drivkaro/
+├── .env.local
+├── next.config.js
+├── package.json
+├── tsconfig.json
+│
+├── src/
+│   ├── app/                                  # MAIN ENTRY (Next.js App Router)
+│   │   ├── layout.tsx                        # Global layout
+│   │   ├── globals.css                       # Global CSS
+│   │
+│   │   ├── admin/                            # ADMIN PANEL UI
+│   │   │    ├── layout.tsx                   # Admin layout (Sidebar + Header)
+│   │   │    ├── page.tsx                     # Dashboard UI
+│   │   │    ├── users/
+│   │   │    │     └── page.tsx
+│   │   │    ├── drivers/
+│   │   │    │     ├── page.tsx
+│   │   │    │     └── verification/
+│   │   │    │            └── page.tsx
+│   │   │    ├── bookings/
+│   │   │    │     └── page.tsx
+│   │   │    ├── coupons/
+│   │   │    │     └── page.tsx
+│   │   │    ├── notifications/
+│   │   │    │     └── page.tsx
+│   │   │    └── settings/
+│   │              └── page.tsx
+│   │
+│   │   ├── api/                               # ALL BACKEND APIs
+│   │   │    ├── auth/
+│   │   │    │     ├── send-otp/route.ts
+│   │   │    │     └── verify-otp/route.ts
+│   │   │    │
+│   │   │    ├── user/
+│   │   │    │     ├── register/route.ts
+│   │   │    │     ├── profile/route.ts
+│   │   │    │     ├── update/route.ts
+│   │   │    │     └── bookings/route.ts
+│   │   │    │
+│   │   │    ├── driver/
+│   │   │    │     ├── register/route.ts
+│   │   │    │     ├── upload-docs/route.ts
+│   │   │    │     ├── bookings/route.ts
+│   │   │    │     ├── accept/route.ts
+│   │   │    │     ├── reject/route.ts
+│   │   │    │     ├── start-session/route.ts
+│   │   │    │     └── end-session/route.ts
+│   │   │    │
+│   │   │    ├── booking/
+│   │   │    │     ├── create/route.ts
+│   │   │    │     ├── view/route.ts
+│   │   │    │     ├── start-otp/route.ts
+│   │   │    │     ├── end-otp/route.ts
+│   │   │    │     ├── rating/route.ts
+│   │   │    │     └── cancel/route.ts
+│   │   │    │
+│   │   │    ├── coupons/
+│   │   │    │     ├── validate/route.ts
+│   │   │    │     └── list/route.ts
+│   │   │    │
+│   │   │    ├── payments/
+│   │   │    │     ├── create-order/route.ts
+│   │   │    │     └── verify/route.ts
+│   │   │    │
+│   │   │    ├── license/
+│   │   │    │     ├── request/route.ts
+│   │   │    │     └── admin-verify/route.ts
+│   │   │    │
+│   │   │    ├── notifications/
+│   │   │    │     ├── send/route.ts
+│   │   │    │     └── list/route.ts
+│   │   │    │
+│   │   │    └── admin/
+│   │   │          ├── dashboard/route.ts
+│   │   │          ├── users/route.ts
+│   │   │          ├── drivers/route.ts
+│   │   │          ├── drivers-verify/route.ts
+│   │   │          ├── bookings/route.ts
+│   │   │          ├── coupons/route.ts
+│   │   │          ├── payments/route.ts
+│   │   │          ├── license/route.ts
+│   │   │          └── notifications/route.ts
+│   │
+│   │   └── test-db/route.ts                  # Test DB connection API
+│
+│   ├── components/                           # Reusable UI Components
+│   │    ├── AdminHeader.tsx
+│   │    ├── AdminSidebar.tsx
+│   │    ├── AdminFooter.tsx
+│   │    ├── Table.tsx
+│   │    ├── Card.tsx
+│   │    └── Modal.tsx
+│
+│   ├── lib/                                  # Backend Helpers
+│   │    ├── mongodb.ts                       # DB connection
+│   │    ├── jwt.ts                           # JWT utils
+│   │    ├── otp.ts                           # OTP generator
+│   │    ├── fcm.ts                           # Firebase notifications
+│   │    └── responses.ts                     # Success/error helpers
+│
+│   ├── models/                               # MongoDB Mongoose Models
+│   │    ├── User.ts
+│   │    ├── Driver.ts
+│   │    ├── Booking.ts
+│   │    ├── BookingDay.ts
+│   │    ├── Coupon.ts
+│   │    ├── Payment.ts
+│   │    ├── LicenseRequest.ts
+│   │    ├── Notification.ts
+│   │    └── Referral.ts
+│
+│   ├── utils/                                # Utility Functions
+│   │    ├── authMiddleware.ts                # Auth checks
+│   │    ├── date.ts                          # Date utilities
+│   │    ├── calculatePrice.ts                # Booking cost engine
+│   │    └── driverAssignment.ts              # Auto-assign driver
+│
+│   └── types/
+│         └── index.d.ts                      # TypeScript interfaces
+│
+└── README.md
