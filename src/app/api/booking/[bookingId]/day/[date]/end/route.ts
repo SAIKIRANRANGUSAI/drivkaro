@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 
-export async function POST(req, { params }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { bookingId: string; date: string } }
+) {
   await connectDB();
 
   const { otp } = await req.json();
