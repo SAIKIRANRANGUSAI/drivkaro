@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import Coupon from "@/models/Coupon";
 
-export async function POST(req) {
+export async function POST(req: NextRequest) {
   await connectDB();
   const body = await req.json();
 
@@ -14,7 +14,7 @@ export async function POST(req) {
     isPercent,
     active: true,
     from: new Date(from),
-    to: new Date(to)
+    to: new Date(to),
   });
 
   return NextResponse.json({ success: true, coupon });
