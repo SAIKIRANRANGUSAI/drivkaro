@@ -16,23 +16,36 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
+import { ReactNode } from "react";
+
+/* ----------------- TYPES ------------------ */
+
+interface DashboardCardProps {
+  title: string;
+  value: number | string;
+  icon: ReactNode;
+  color: "blue" | "orange" | "purple" | "green";
+  link: string;
+}
+
+interface ActionButtonProps {
+  label: string;
+  link: string;
+}
 
 export default function AdminDashboard() {
   return (
     <div className="flex">
-      
       {/* SIDEBAR */}
       {/* <AdminSidebar /> */}
 
       {/* MAIN AREA */}
       <div className="flex flex-col w-full">
-
         {/* HEADER */}
         {/* <AdminHeader /> */}
 
         {/* PAGE CONTENT */}
         <main className="p-8 space-y-10">
-
           {/* TOP WELCOME AREA */}
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold text-[#0C1F4B]">
@@ -49,7 +62,6 @@ export default function AdminDashboard() {
 
           {/* KPI CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-
             <DashboardCard
               title="Total Users"
               value="0"
@@ -81,15 +93,15 @@ export default function AdminDashboard() {
               color="green"
               link="/admin/payments"
             />
-
           </div>
 
           {/* GRID SECTION */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
             {/* Pending Drivers */}
             <div className="bg-white rounded-2xl shadow border p-6 space-y-4">
-              <h3 className="text-xl font-semibold">Pending Driver Verifications</h3>
+              <h3 className="text-xl font-semibold">
+                Pending Driver Verifications
+              </h3>
 
               <Link
                 href="/admin/drivers/verification"
@@ -99,7 +111,9 @@ export default function AdminDashboard() {
                   <ShieldCheck size={26} className="text-yellow-600" />
                   <div>
                     <p className="font-medium text-gray-700">Pending Drivers</p>
-                    <p className="text-sm text-gray-500">Approve submitted documents</p>
+                    <p className="text-sm text-gray-500">
+                      Approve submitted documents
+                    </p>
                   </div>
                 </div>
                 <span className="font-bold text-xl">0</span>
@@ -137,7 +151,6 @@ export default function AdminDashboard() {
                 <ArrowRight size={28} className="text-blue-700" />
               </div>
             </div>
-
           </div>
 
           {/* QUICK ACTIONS */}
@@ -145,13 +158,18 @@ export default function AdminDashboard() {
             <h3 className="text-xl font-semibold mb-6">Quick Actions</h3>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <ActionButton label="Verify Drivers" link="/admin/drivers/verification" />
+              <ActionButton
+                label="Verify Drivers"
+                link="/admin/drivers/verification"
+              />
               <ActionButton label="View Bookings" link="/admin/bookings" />
               <ActionButton label="Create Coupon" link="/admin/coupons" />
-              <ActionButton label="Send Notification" link="/admin/notifications" />
+              <ActionButton
+                label="Send Notification"
+                link="/admin/notifications"
+              />
             </div>
           </div>
-
         </main>
 
         {/* FOOTER */}
@@ -163,7 +181,7 @@ export default function AdminDashboard() {
 
 /* ----------------- REUSABLE COMPONENTS ------------------ */
 
-function DashboardCard({ title, value, icon, color, link }) {
+function DashboardCard({ title, value, icon, color, link }: DashboardCardProps) {
   const colorMap = {
     blue: "bg-blue-100 text-blue-700",
     orange: "bg-orange-100 text-orange-700",
@@ -175,9 +193,7 @@ function DashboardCard({ title, value, icon, color, link }) {
     <Link href={link} className="group">
       <div className="bg-white/70 backdrop-blur-xl border shadow-md rounded-2xl p-6 transition hover:shadow-xl hover:-translate-y-1">
         <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-xl ${colorMap[color]}`}>
-            {icon}
-          </div>
+          <div className={`p-3 rounded-xl ${colorMap[color]}`}>{icon}</div>
 
           <div>
             <p className="text-gray-500 text-sm">{title}</p>
@@ -189,7 +205,7 @@ function DashboardCard({ title, value, icon, color, link }) {
   );
 }
 
-function ActionButton({ label, link }) {
+function ActionButton({ label, link }: ActionButtonProps) {
   return (
     <Link
       href={link}
