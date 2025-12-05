@@ -1,37 +1,37 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 
-export async function POST(req, { params }) {
+interface BookingParams {
+  bookingId: string;
+  date: string;
+}
+
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<BookingParams> }
+) {
   await connectDB();
 
-  const { bookingId, date } = params;
+  const { bookingId, date } = await context.params;
 
   const booking = await Booking.findById(bookingId);
-  if (!booking) return NextResponse.json({ success: false, message: "Not found" });
+  if (!booking) {
+    return NextResponse.json({ success: false, message: "Booking not found" });
+  }
 
-  const day = booking.days.find((d) => d.date === date);
-  if (!day) return NextResponse.json({ success: false, message: "Invalid day" });
+  const day = booking.days.find((d: any) => d.date === date);
+  if (!day) {
+    return NextResponse.json({ success: false, message: "Invalid day" });
+  }
 
-  // Mark missed
   day.status = "missed";
-  day.isMissed = true;
-
-  // Add new day at end
-  const lastDay = booking.days[booking.days.length - 1];
-  const nextDate = new Date(lastDay.date);
-  nextDate.setDate(nextDate.getDate() + 1);
-
-  booking.days.push({
-    date: nextDate.toISOString().slice(0, 10),
-    slot: lastDay.slot,
-    status: "pending"
-  });
+  day.missedAt = new Date();
 
   await booking.save();
 
   return NextResponse.json({
     success: true,
-    message: "Day marked missed and extra day added"
+    message: "Day marked as missed",
   });
 }

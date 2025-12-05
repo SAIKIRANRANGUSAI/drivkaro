@@ -1,32 +1,46 @@
 import mongoose from "mongoose";
 
-// ⭐ IMPORTANT: Load all models BEFORE connectDB is called
+// ⭐ Register models to avoid OverwriteModelError
 import "@/models/User";
 import "@/models/Booking";
 import "@/models/OtherUser";
 
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+// -------------------
+// Cache Type
+// -------------------
+interface MongooseCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
 }
 
+// -------------------
+// Initialize Global Cache
+// -------------------
+let cached = (global as any).mongoose as MongooseCache;
+
+if (!cached) {
+  cached = (global as any).mongoose = { conn: null, promise: null };
+}
+
+// -------------------
+// Connect Function
+// -------------------
 export async function connectDB() {
   const MONGO_URI = process.env.MONGODB_URI;
 
   if (!MONGO_URI) {
-    throw new Error("❌ MONGODB_URI not found in .env");
+    throw new Error("❌ MONGODB_URI not found in environment variables");
   }
 
-  // If already connected, use it
+  // If already connected, return cached connection
   if (cached.conn) {
     return cached.conn;
   }
 
-  // If connecting is already in progress, await it
+  // If connection is already in progress, await it
   if (!cached.promise) {
     cached.promise = mongoose
-      .connect(MONGO_URI, {
+      .connect(MONGO_URI as string, {
         bufferCommands: false,
       })
       .then((mongoose) => {
@@ -34,7 +48,7 @@ export async function connectDB() {
         return mongoose;
       })
       .catch((err) => {
-        console.error("❌ MongoDB error:", err);
+        console.error("❌ MongoDB connection error:", err);
         throw err;
       });
   }

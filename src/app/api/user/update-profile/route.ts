@@ -1,11 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import { verifyAccessToken } from "@/lib/jwt";
+import { JwtPayload } from "jsonwebtoken";
 
-export async function POST(req: Request) {
+interface TokenPayload extends JwtPayload {
+  userId: string;
+}
+
+export async function POST(req: NextRequest) {
   try {
     await dbConnect();
+
     const body = await req.json();
 
     const authHeader = req.headers.get("authorization");
@@ -17,7 +23,17 @@ export async function POST(req: Request) {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded: any = verifyAccessToken(token);
+
+    // Narrow token type for safety
+    const rawPayload = verifyAccessToken(token);
+    const decoded = rawPayload as TokenPayload;
+
+    if (!decoded?.userId) {
+      return NextResponse.json(
+        { success: false, message: "Invalid token" },
+        { status: 401 }
+      );
+    }
 
     const user = await User.findById(decoded.userId);
     if (!user) {
@@ -38,8 +54,8 @@ export async function POST(req: Request) {
       message: "Profile updated",
       user,
     });
-  } catch (err) {
-    console.log(err);
+  } catch (err: any) {
+    console.error(err);
     return NextResponse.json(
       { success: false, message: "Server error" },
       { status: 500 }

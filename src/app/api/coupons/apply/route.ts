@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import Coupon from "@/models/Coupon";
 
-export async function POST(req) {
+export async function POST(req: NextRequest) {
   await connectDB();
+  
   const { code, amount } = await req.json();
-
   const today = new Date();
 
   const coupon = await Coupon.findOne({
