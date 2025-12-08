@@ -2,75 +2,102 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import OtherUser from "@/models/OtherUser";
 
-// POST: create an other-user for the logged in user
-export async function POST(req: NextRequest) {
+interface Params {
+  id: string;
+}
+
+//
+// GET
+//
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Params }
+) {
   try {
     await connectDB();
 
-    const body = await req.json();
-
     const userId = req.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { fullName, mobile, gender, dob, notes } = body;
+    const other = await OtherUser.findById(params.id);
 
-    if (!fullName || !mobile) {
-      return NextResponse.json(
-        { message: "fullName and mobile are required" },
-        { status: 400 }
-      );
+    if (!other || other.ownerUserId.toString() !== userId) {
+      return NextResponse.json({ message: "Not found" }, { status: 404 });
     }
 
-    const other = await OtherUser.create({
-      ownerUserId: userId,
-      fullName,
-      mobile,
-      gender,
-      dob: dob ? new Date(dob) : undefined,
-      notes,
-    });
+    return NextResponse.json({ success: true, other });
 
-    return NextResponse.json(
-      { success: true, other },
-      { status: 201 }
-    );
   } catch (err) {
     console.error(err);
-    return NextResponse.json(
-      { message: "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
 
-// GET: list other-users for the logged-in user
-export async function GET(req: NextRequest) {
+//
+// PUT
+//
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Params }
+) {
   try {
     await connectDB();
 
     const userId = req.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const others = await OtherUser.find({ ownerUserId: userId }).sort({
-      createdAt: -1,
-    });
+    const update = await req.json();
 
-    return NextResponse.json({ success: true, others });
+    const other = await OtherUser.findOneAndUpdate(
+      { _id: params.id, ownerUserId: userId },
+      update,
+      { new: true }
+    );
+
+    if (!other) {
+      return NextResponse.json({ message: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, other });
+
   } catch (err) {
     console.error(err);
-    return NextResponse.json(
-      { message: "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
+}
+
+//
+// DELETE
+//
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Params }
+) {
+  try {
+    await connectDB();
+
+    const userId = req.headers.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const other = await OtherUser.findOneAndDelete({
+      _id: params.id,
+      ownerUserId: userId,
+    });
+
+    if (!other) {
+      return NextResponse.json({ message: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: "Deleted" });
+
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
