@@ -1,48 +1,39 @@
-import dbConnect from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
-  }
-
+export async function POST(req: Request) {
   try {
-    const { bookingId, date } = req.query;
+    const url = new URL(req.url);
+    const bookingId = url.searchParams.get("bookingId");
+    const date = url.searchParams.get("date");
 
     if (!bookingId || !date) {
-      return res
-        .status(400)
-        .json({ success: false, message: "bookingId and date are required" });
+      return Response.json(
+        { success: false, message: "bookingId and date are required" },
+        { status: 400 }
+      );
     }
 
-    await dbConnect();
-
-    const booking = await Booking.findById(bookingId);
-    if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking not found" });
-    }
+    await connectDB();
 
     let bookingDay = await BookingDay.findOne({ booking: bookingId, date });
     if (!bookingDay) {
-      bookingDay = new BookingDay({
-        booking: bookingId,
-        date,
-      });
+      bookingDay = new BookingDay({ booking: bookingId, date });
     }
 
     bookingDay.status = "missed";
     await bookingDay.save();
 
-    // NOTE: Extra-day logic can be handled here if you update Booking schema later.
-    // For now just return success message as per your API doc.
-
-    return res.status(200).json({
+    return Response.json({
       success: true,
       message: "Day marked missed and extra day added",
     });
   } catch (err) {
-    console.error("Missed day error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error("Missed day session error:", err);
+    return Response.json(
+      { success: false, message: "Server error" },
+      { status: 500 }
+    );
   }
 }

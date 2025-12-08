@@ -1,33 +1,38 @@
-import { connectDB } from "@/lib/mongoose";
-
+import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
-  }
-
+export async function POST(req: Request) {
   try {
-    const { bookingId, date } = req.query;
-    const { otp } = req.body || {};
+    const url = new URL(req.url);
+    const bookingId = url.searchParams.get("bookingId");
+    const date = url.searchParams.get("date");
+
+    const { otp } = await req.json();
 
     if (!bookingId || !date || !otp) {
-      return res
-        .status(400)
-        .json({ success: false, message: "bookingId, date and otp are required" });
+      return Response.json(
+        { success: false, message: "bookingId, date and otp are required" },
+        { status: 400 }
+      );
     }
 
     await connectDB();
 
     const booking = await Booking.findById(bookingId);
     if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking not found" });
+      return Response.json(
+        { success: false, message: "Booking not found" },
+        { status: 404 }
+      );
     }
 
     const bookingDay = await BookingDay.findOne({ booking: bookingId, date });
     if (!bookingDay) {
-      return res.status(404).json({ success: false, message: "Booking day not found" });
+      return Response.json(
+        { success: false, message: "Booking day not found" },
+        { status: 404 }
+      );
     }
 
     bookingDay.endOtp = otp;
@@ -36,13 +41,16 @@ export default async function handler(req, res) {
 
     await bookingDay.save();
 
-    return res.status(200).json({
+    return Response.json({
       success: true,
       message: "Day session ended",
       day: bookingDay,
     });
   } catch (err) {
     console.error("End day session error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return Response.json(
+      { success: false, message: "Server error" },
+      { status: 500 }
+    );
   }
 }
