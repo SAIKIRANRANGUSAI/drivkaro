@@ -53,15 +53,12 @@ export async function GET(
   }
 }
 
-export async function DELETE(
-  req: Request,
-  context: any
-) {
+export async function DELETE(req: Request, context: any) {
   try {
     await connectDB();
 
-    // get :id from route
-    const { id } = context?.params || {};
+    // FIX: params must be awaited
+    const { id } = await context.params;
 
     if (!id) {
       return NextResponse.json(
@@ -75,10 +72,10 @@ export async function DELETE(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // find booking by _id OR bookingId
+    // find booking by _id or bookingId
     let booking = null;
 
-    if (typeof id === "string" && /^[0-9a-fA-F]{24}$/.test(id)) {
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
       booking = await Booking.findById(id);
     }
     if (!booking) {
@@ -89,12 +86,10 @@ export async function DELETE(
       return NextResponse.json({ message: "Booking not found" }, { status: 404 });
     }
 
-    // ownership check
     if (booking.userId.toString() !== userId) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    // update status
     booking.status = "cancelled";
     await booking.save();
 
