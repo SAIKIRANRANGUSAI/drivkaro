@@ -7,7 +7,7 @@ import OtherUser from "@/models/OtherUser";
 //
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
@@ -17,7 +17,9 @@ export async function GET(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const other = await OtherUser.findById(params.id);
+    const { id } = await params;
+
+    const other = await OtherUser.findById(id);
 
     if (!other || other.ownerUserId.toString() !== userId) {
       return NextResponse.json({ message: "Not found" }, { status: 404 });
@@ -35,7 +37,7 @@ export async function GET(
 //
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
@@ -45,10 +47,12 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const update = await req.json();
 
     const other = await OtherUser.findOneAndUpdate(
-      { _id: params.id, ownerUserId: userId },
+      { _id: id, ownerUserId: userId },
       update,
       { new: true }
     );
@@ -69,7 +73,7 @@ export async function PUT(
 //
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
@@ -79,8 +83,10 @@ export async function DELETE(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const other = await OtherUser.findOneAndDelete({
-      _id: params.id,
+      _id: id,
       ownerUserId: userId,
     });
 
