@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import OtherUser from "@/models/OtherUser";
 
-type Params = Promise<{ id: string }>;
-
 //
 // GET
 //
 export async function GET(
   req: NextRequest,
-  { params }: { params: Params }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
@@ -19,7 +17,8 @@ export async function GET(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
 
     const other = await OtherUser.findById(id);
 
@@ -39,7 +38,7 @@ export async function GET(
 //
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Params }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
@@ -49,7 +48,8 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
 
     const update = await req.json();
 
@@ -75,7 +75,7 @@ export async function PUT(
 //
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Params }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
@@ -85,7 +85,8 @@ export async function DELETE(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
 
     const other = await OtherUser.findOneAndDelete({
       _id: id,
