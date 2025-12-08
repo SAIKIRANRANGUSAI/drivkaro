@@ -1,17 +1,18 @@
+import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
-import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
 
-export async function POST(req: Request) {
+export async function POST(
+  req: NextRequest,
+  context: { params: { bookingId: string; date: string } }
+) {
   try {
-    const url = new URL(req.url);
-    const bookingId = url.searchParams.get("bookingId");
-    const date = url.searchParams.get("date");
-
+    const { bookingId, date } = context.params;
     const { otp } = await req.json();
 
+    // Validate required values
     if (!bookingId || !date || !otp) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, message: "bookingId, date and otp are required" },
         { status: 400 }
       );
@@ -19,25 +20,32 @@ export async function POST(req: Request) {
 
     await connectDB();
 
+    // Find or create booking day
     let bookingDay = await BookingDay.findOne({ booking: bookingId, date });
+
     if (!bookingDay) {
-      bookingDay = new BookingDay({ booking: bookingId, date });
+      bookingDay = new BookingDay({
+        booking: bookingId,
+        date,
+      });
     }
 
+    // Update
     bookingDay.startOtp = otp;
     bookingDay.status = "ongoing";
     bookingDay.startVerifiedAt = new Date();
 
     await bookingDay.save();
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
       message: "Day session started",
       day: bookingDay,
     });
+
   } catch (err) {
     console.error("Start day session error:", err);
-    return Response.json(
+    return NextResponse.json(
       { success: false, message: "Server error" },
       { status: 500 }
     );
