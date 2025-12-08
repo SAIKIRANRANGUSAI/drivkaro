@@ -556,3 +556,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
+
+export async function GET(req: Request) {
+  try {
+    await connectDB();
+
+    const userId = req.headers.get("x-user-id");
+    if (!userId) {
+      return NextResponse.json({ message: "User ID missing" }, { status: 400 });
+    }
+
+    // ?status=ongoing
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status") || "pending";
+
+    // FIND BOOKINGS
+    const bookings = await Booking.find({
+      userId,
+      status,
+    }).sort({ createdAt: -1 });
+
+    return NextResponse.json(
+      { success: true, count: bookings.length, bookings },
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("BOOKING GET ERROR:", err);
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
+}
+
