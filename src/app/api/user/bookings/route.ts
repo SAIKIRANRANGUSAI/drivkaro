@@ -304,33 +304,60 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "User ID missing" }, { status: 400 });
     }
 
+    // ===========================================
+    // 1. Generate days array from date range
+    // ===========================================
+    const days: any[] = [];
+    const start = new Date(body.startDate);
+    const end = new Date(body.endDate);
+
+    let current = new Date(start);
+
+    while (current <= end) {
+      days.push({
+        date: current.toISOString().split("T")[0], // yyyy-mm-dd
+        slot: body.slotTime,
+        status: "pending",       // default
+        startOtp: null,
+        endOtp: null
+      });
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    // ===========================================
+    // 2. Create Booking
+    // ===========================================
     const newBooking = await Booking.create({
       userId,
       bookingId: "BK" + Math.floor(100000 + Math.random() * 900000),
       pickupLocation: body.pickupLocation,
-      dropLocation: body.pickupLocation,
+      dropLocation: body.dropLocation,
       carType: body.carType,
-      daysCount: body.daysCount,
-      days: body.days, // You may adjust based on your creation logic
-      preferredGender: body.preferredGender || null,
-      couponCode: body.couponCode || null,
+      daysCount: days.length,
+      days,
+      preferredGender: body.preferredGender,
+      couponCode: body.couponCode,
       amount: body.amount,
       gst: body.gst,
       discount: body.discount,
       totalAmount: body.totalAmount,
-      paid: false,
       bookedFor: body.bookedFor || "self",
       otherUserId: body.otherUserId || null,
       status: "pending",
     });
 
-    return NextResponse.json({ success: true, booking: newBooking }, { status: 201 });
+    return NextResponse.json(
+      { success: true, booking: newBooking },
+      { status: 201 }
+    );
 
   } catch (error) {
     console.error("BOOKING POST ERROR:", error);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
+
 
 
 
