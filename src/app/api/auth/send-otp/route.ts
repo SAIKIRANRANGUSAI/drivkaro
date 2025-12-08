@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Otp from "@/models/Otp";
 import crypto from "crypto";
+// 
 
 export async function POST(req: Request) {
   await connectDB();
