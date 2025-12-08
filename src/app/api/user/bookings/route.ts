@@ -488,7 +488,10 @@ export async function POST(req: Request) {
           finalAmount = amount + gst - discount;
 
           // UPDATE usage
-          const usage = coupon.usedBy.find((u) => u.userId.toString() === userId);
+          const usage = coupon.usedBy.find(
+  (u: { userId: any; count: number }) => u.userId.toString() === userId
+);
+
 
           if (!usage) {
             coupon.usedBy.push({ userId, count: 1 });

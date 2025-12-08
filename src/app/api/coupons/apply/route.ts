@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
 
     // 2️⃣ Usage limit
     const usage = coupon.usedBy.find(
-      (u) => u.userId.toString() === userId
-    );
+  (u: { userId: any; count: number }) => u.userId.toString() === userId
+);
+
 
     if (usage && usage.count >= coupon.maxUsagePerUser) {
       return NextResponse.json({
