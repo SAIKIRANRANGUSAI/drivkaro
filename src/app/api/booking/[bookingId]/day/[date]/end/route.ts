@@ -1,54 +1,47 @@
-import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongoose";
+import dbConnect from "@/lib/mongoose";
 import Booking from "@/models/Booking";
+import BookingDay from "@/models/BookingDay";
 
-interface BookingParams {
-  bookingId: string;
-  date: string;
-}
-
-interface BookingDay {
-  date: string;
-  endOTP?: string;
-  status?: string;
-  endedAt?: Date;
-}
-
-export async function POST(
-  req: NextRequest,
-  context: { params: Promise<BookingParams> }
-) {
-  await connectDB();
-
-  // Next.js 16: params is a Promise
-  const { bookingId, date } = await context.params;
-
-  const { otp } = await req.json();
-
-  const booking = await Booking.findById(bookingId);
-  if (!booking) {
-    return NextResponse.json({
-      success: false,
-      message: "Not found",
-    });
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, message: "Method not allowed" });
   }
 
-  const day = booking.days.find((d: BookingDay) => d.date === date);
-  if (!day) {
-    return NextResponse.json({
-      success: false,
-      message: "Invalid day",
+  try {
+    const { bookingId, date } = req.query;
+    const { otp } = req.body || {};
+
+    if (!bookingId || !date || !otp) {
+      return res
+        .status(400)
+        .json({ success: false, message: "bookingId, date and otp are required" });
+    }
+
+    await dbConnect();
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+
+    const bookingDay = await BookingDay.findOne({ booking: bookingId, date });
+    if (!bookingDay) {
+      return res.status(404).json({ success: false, message: "Booking day not found" });
+    }
+
+    bookingDay.endOtp = otp;
+    bookingDay.status = "completed";
+    bookingDay.endVerifiedAt = new Date();
+
+    await bookingDay.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Day session ended",
+      day: bookingDay,
     });
+  } catch (err) {
+    console.error("End day session error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
-
-  day.endOTP = otp;
-  day.status = "completed";
-  day.endedAt = new Date();
-
-  await booking.save();
-
-  return NextResponse.json({
-    success: true,
-    message: "Session completed",
-  });
 }

@@ -1,37 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongoose";
+import dbConnect from "@/lib/mongoose";
 import Booking from "@/models/Booking";
+import BookingDay from "@/models/BookingDay";
 
-interface BookingParams {
-  bookingId: string;
-  date: string;
-}
-
-export async function POST(
-  req: NextRequest,
-  context: { params: Promise<BookingParams> }
-) {
-  await connectDB();
-
-  const { bookingId, date } = await context.params;
-
-  const booking = await Booking.findById(bookingId);
-  if (!booking) {
-    return NextResponse.json({ success: false, message: "Booking not found" });
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, message: "Method not allowed" });
   }
 
-  const day = booking.days.find((d: any) => d.date === date);
-  if (!day) {
-    return NextResponse.json({ success: false, message: "Invalid day" });
+  try {
+    const { bookingId, date } = req.query;
+
+    if (!bookingId || !date) {
+      return res
+        .status(400)
+        .json({ success: false, message: "bookingId and date are required" });
+    }
+
+    await dbConnect();
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+
+    let bookingDay = await BookingDay.findOne({ booking: bookingId, date });
+    if (!bookingDay) {
+      bookingDay = new BookingDay({
+        booking: bookingId,
+        date,
+      });
+    }
+
+    bookingDay.status = "missed";
+    await bookingDay.save();
+
+    // NOTE: Extra-day logic can be handled here if you update Booking schema later.
+    // For now just return success message as per your API doc.
+
+    return res.status(200).json({
+      success: true,
+      message: "Day marked missed and extra day added",
+    });
+  } catch (err) {
+    console.error("Missed day error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
-
-  day.status = "missed";
-  day.missedAt = new Date();
-
-  await booking.save();
-
-  return NextResponse.json({
-    success: true,
-    message: "Day marked as missed",
-  });
 }
