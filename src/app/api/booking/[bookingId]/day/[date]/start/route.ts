@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
+import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
 
 export async function POST(
@@ -19,8 +20,8 @@ export async function POST(
 
     await connectDB();
 
+    // Update BookingDay
     let bookingDay = await BookingDay.findOne({ booking: bookingId, date });
-
     if (!bookingDay) {
       bookingDay = new BookingDay({ booking: bookingId, date });
     }
@@ -30,6 +31,18 @@ export async function POST(
     bookingDay.startVerifiedAt = new Date();
 
     await bookingDay.save();
+
+    // UPDATE BOOKING DAYS ARRAY
+    await Booking.updateOne(
+      { _id: bookingId, "days.date": date },
+      {
+        $set: {
+          "days.$.startOtp": otp,
+          "days.$.status": "ongoing",
+          "days.$.startVerifiedAt": new Date(),
+        },
+      }
+    );
 
     return NextResponse.json({
       success: true,
