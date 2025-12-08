@@ -284,12 +284,9 @@
 
 
 
-
-
 import { NextResponse } from "next/server";
-import connectDB from "@/lib/db";
+import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
-
 
 // ---------------------------------------------
 // CREATE BOOKING  (POST)
@@ -304,6 +301,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "User ID missing" }, { status: 400 });
     }
 
+    // REQUIRED FIELDS VALIDATION
+    if (!body.pickupLocation || !body.startDate || !body.endDate || !body.carType) {
+      return NextResponse.json(
+        { message: "pickupLocation, startDate, endDate and carType are required" },
+        { status: 400 }
+      );
+    }
+
     // ===========================================
     // 1. Generate days array from date range
     // ===========================================
@@ -316,10 +321,10 @@ export async function POST(req: Request) {
     while (current <= end) {
       days.push({
         date: current.toISOString().split("T")[0], // yyyy-mm-dd
-        slot: body.slotTime,
-        status: "pending",       // default
+        slot: body.slotTime || null,
+        status: "pending",
         startOtp: null,
-        endOtp: null
+        endOtp: null,
       });
 
       current.setDate(current.getDate() + 1);
@@ -331,19 +336,29 @@ export async function POST(req: Request) {
     const newBooking = await Booking.create({
       userId,
       bookingId: "BK" + Math.floor(100000 + Math.random() * 900000),
+
+      // FIXED: Drop location = pickup location (as per scope)
       pickupLocation: body.pickupLocation,
-      dropLocation: body.dropLocation,
+      dropLocation: body.pickupLocation,
+
       carType: body.carType,
+
       daysCount: days.length,
       days,
-      preferredGender: body.preferredGender,
-      couponCode: body.couponCode,
-      amount: body.amount,
-      gst: body.gst,
-      discount: body.discount,
-      totalAmount: body.totalAmount,
+
+      preferredGender: body.preferredGender || null,
+      couponCode: body.couponCode || null,
+
+      amount: body.amount || 0,
+      gst: body.gst || 0,
+      discount: body.discount || 0,
+      totalAmount: body.totalAmount || 0,
+
+      paid: false,
       bookedFor: body.bookedFor || "self",
       otherUserId: body.otherUserId || null,
+
+      assignedInstructorId: null,
       status: "pending",
     });
 
@@ -351,15 +366,11 @@ export async function POST(req: Request) {
       { success: true, booking: newBooking },
       { status: 201 }
     );
-
   } catch (error) {
     console.error("BOOKING POST ERROR:", error);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
-
-
-
 
 // ---------------------------------------------
 // LIST BOOKINGS  (GET)
@@ -373,20 +384,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // Read query param
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status"); // can be pending, confirmed, ongoing…
+    const status = searchParams.get("status");
 
     const filter: any = { userId };
-
-    if (status) {
-      filter.status = status;   // <- very important
-    }
+    if (status) filter.status = status;
 
     const bookings = await Booking.find(filter).sort({ createdAt: -1 });
 
     return NextResponse.json({ success: true, bookings });
-
   } catch (error) {
     console.error("BOOKING LIST ERROR:", error);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
