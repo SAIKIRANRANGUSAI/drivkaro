@@ -2,21 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import OtherUser from "@/models/OtherUser";
 
-interface Params {
-  id: string;
-}
-
 //
 // GET
 //
 export async function GET(
   req: NextRequest,
-  { params }: { params: Params }
+  { params }: { params: { id: string } }
 ) {
   try {
     await connectDB();
-
     const userId = req.headers.get("x-user-id");
+
     if (!userId) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
@@ -28,7 +24,6 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, other });
-
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
@@ -40,7 +35,7 @@ export async function GET(
 //
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Params }
+  { params }: { params: { id: string } }
 ) {
   try {
     await connectDB();
@@ -63,7 +58,6 @@ export async function PUT(
     }
 
     return NextResponse.json({ success: true, other });
-
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
@@ -75,7 +69,7 @@ export async function PUT(
 //
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Params }
+  { params }: { params: { id: string } }
 ) {
   try {
     await connectDB();
@@ -95,7 +89,6 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true, message: "Deleted" });
-
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
