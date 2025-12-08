@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import OtherUser from "@/models/OtherUser";
 
+type Params = Promise<{ id: string }>;
+
 //
 // GET
 //
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Params }
 ) {
   try {
     await connectDB();
@@ -37,7 +39,7 @@ export async function GET(
 //
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Params }
 ) {
   try {
     await connectDB();
@@ -73,7 +75,7 @@ export async function PUT(
 //
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Params }
 ) {
   try {
     await connectDB();
