@@ -1,4 +1,5 @@
-import dbConnect from "@/lib/mongoose";
+import { connectDB } from "@/lib/mongoose";
+
 import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
 
@@ -17,7 +18,7 @@ export default async function handler(req, res) {
         .json({ success: false, message: "bookingId, date and otp are required" });
     }
 
-    await dbConnect();
+    await connectDB();
 
     const booking = await Booking.findById(bookingId);
     if (!booking) {
