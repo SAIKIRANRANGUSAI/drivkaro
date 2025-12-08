@@ -2,15 +2,15 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IPricing extends Document {
   carType: "Hatchback" | "Sedan" | "SUV";
-  days: number;                 // Example: 7, 10, 15, 20
-  price: number;                // Example: 3500
+  pricePerDay: number;
+  gstPercent: number; // add this also (ex: 18%)
 }
 
 const PricingSchema = new Schema(
   {
     carType: { type: String, required: true },
-    days: { type: Number, required: true },
-    price: { type: Number, required: true },
+    pricePerDay: { type: Number, required: true },
+    gstPercent: { type: Number, default: 18 }, // default 18%
   },
   { timestamps: true }
 );

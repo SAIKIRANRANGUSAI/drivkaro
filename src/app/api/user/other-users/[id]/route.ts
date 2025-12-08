@@ -7,91 +7,23 @@ interface Params {
 }
 
 //
-// GET
+// GET — fetch one other-user
 //
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<Params> }
+  { params }: { params: Params }
 ) {
   try {
     await connectDB();
 
-    const { id } = await context.params;
     const userId = req.headers.get("x-user-id");
+    const { id } = params;
 
     if (!userId) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const other = await OtherUser.findById(id);
-
-    if (!other || other.ownerUserId.toString() !== userId) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, other });
-
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
-  }
-}
-
-//
-// PUT
-//
-export async function PUT(
-  req: NextRequest,
-  context: { params: Promise<Params> }
-) {
-  try {
-    await connectDB();
-
-    const { id } = await context.params;
-    const userId = req.headers.get("x-user-id");
-
-    if (!userId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const update = await req.json();
-
-    const other = await OtherUser.findOneAndUpdate(
-      { _id: id, ownerUserId: userId },
-      update,
-      { new: true }
-    );
-
-    if (!other) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, other });
-
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
-  }
-}
-
-//
-// DELETE
-//
-export async function DELETE(
-  req: NextRequest,
-  context: { params: Promise<Params> }
-) {
-  try {
-    await connectDB();
-
-    const { id } = await context.params;
-    const userId = req.headers.get("x-user-id");
-
-    if (!userId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const other = await OtherUser.findOneAndDelete({
+    const other = await OtherUser.findOne({
       _id: id,
       ownerUserId: userId,
     });
@@ -100,10 +32,95 @@ export async function DELETE(
       return NextResponse.json({ message: "Not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, message: "Deleted" });
-
+    return NextResponse.json({
+      success: true,
+      other,
+    });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
+    console.error("GET OTHER ERROR:", err);
+    return NextResponse.json(
+      { message: "Server error" },
+      { status: 500 }
+    );
+  }
+}
+
+//
+// PUT — update other-user
+//
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Params }
+) {
+  try {
+    await connectDB();
+
+    const userId = req.headers.get("x-user-id");
+    const { id } = params;
+    const body = await req.json();
+
+    if (!userId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const updated = await OtherUser.findOneAndUpdate(
+      { _id: id, ownerUserId: userId },
+      body,
+      { new: true }
+    );
+
+    if (!updated) {
+      return NextResponse.json({ message: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      other: updated,
+    });
+  } catch (err) {
+    console.error("UPDATE OTHER ERROR:", err);
+    return NextResponse.json(
+      { message: "Server error" },
+      { status: 500 }
+    );
+  }
+}
+
+//
+// DELETE — delete other-user
+//
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Params }
+) {
+  try {
+    await connectDB();
+
+    const userId = req.headers.get("x-user-id");
+    const { id } = params;
+
+    if (!userId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const deleted = await OtherUser.findOneAndDelete({
+      _id: id,
+      ownerUserId: userId,
+    });
+
+    if (!deleted) {
+      return NextResponse.json({ message: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Deleted",
+    });
+  } catch (err) {
+    console.error("DELETE OTHER ERROR:", err);
+    return NextResponse.json(
+      { message: "Server error" },
+      { status: 500 }
+    );
   }
 }

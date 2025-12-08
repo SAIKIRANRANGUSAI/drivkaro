@@ -6,16 +6,24 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
-    const body = await req.json();
-    const { bookingId, txnRef, status } = body;
+    const { bookingId, txnRef, status } = await req.json();
 
+    // ====== VALIDATION ======
     if (!bookingId || !txnRef || !status) {
       return NextResponse.json(
-        { success: false, message: "bookingId, txnRef, status required" },
+        { success: false, message: "bookingId, txnRef & status are required" },
         { status: 400 }
       );
     }
 
+    if (!["success", "failed"].includes(status)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid status value" },
+        { status: 400 }
+      );
+    }
+
+    // ====== FIND BOOKING ======
     const booking = await Booking.findById(bookingId);
     if (!booking) {
       return NextResponse.json(
@@ -24,17 +32,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    booking.paymentStatus = status;
+    // ====== UPDATE PAYMENT ======
     booking.paymentTxnRef = txnRef;
-    if (status === "success") booking.status = "ongoing";
+    booking.paymentStatus = status;
+
+    if (status === "success") {
+      booking.paid = true;
+      booking.status = "ongoing";
+    } else {
+      booking.paid = false;
+      // keep same status "pending"
+    }
 
     await booking.save();
 
+    // ====== RESPONSE ======
     return NextResponse.json({
       success: true,
       message: "Payment webhook processed",
+      booking,
     });
-  } catch (err: any) {
+
+  } catch (err) {
     console.error("Webhook Error:", err);
     return NextResponse.json(
       { success: false, message: "Internal server error" },
