@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import axios from "axios";
 
 /* ----------------- TYPES ------------------ */
 
@@ -34,6 +35,23 @@ interface ActionButtonProps {
 }
 
 export default function AdminDashboard() {
+  const [stats, setStats] = useState({
+    users: 0,
+    drivers: 0,
+    bookings: 0,
+    pendingDrivers: 0,
+    revenue: 0,
+  });
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  async function loadStats() {
+    const res = await axios.get("/api/admin/dashboard-stats");
+    setStats(res.data);
+  }
+
   return (
     <div className="flex">
       {/* SIDEBAR */}
@@ -64,7 +82,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <DashboardCard
               title="Total Users"
-              value="0"
+              value={stats.users}
               icon={<Users size={28} />}
               color="blue"
               link="/admin/users"
@@ -72,7 +90,7 @@ export default function AdminDashboard() {
 
             <DashboardCard
               title="Total Drivers"
-              value="0"
+              value={stats.drivers}
               icon={<Car size={28} />}
               color="orange"
               link="/admin/drivers"
@@ -80,7 +98,7 @@ export default function AdminDashboard() {
 
             <DashboardCard
               title="Total Bookings"
-              value="0"
+              value={stats.bookings}
               icon={<CalendarCheck2 size={28} />}
               color="purple"
               link="/admin/bookings"
@@ -88,7 +106,7 @@ export default function AdminDashboard() {
 
             <DashboardCard
               title="Revenue"
-              value="₹0"
+              value={`₹${stats.revenue}`}
               icon={<IndianRupee size={28} />}
               color="green"
               link="/admin/payments"
@@ -116,7 +134,9 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                 </div>
-                <span className="font-bold text-xl">0</span>
+                <span className="font-bold text-xl">
+                  {stats.pendingDrivers}
+                </span>
               </Link>
             </div>
 
@@ -131,7 +151,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-3">
                   <Star className="text-yellow-500" />
                   <div>
-                    <p className="font-semibold text-gray-700">No Data</p>
+                    <p className="font-semibold text-gray-700">View Drivers</p>
                     <p className="text-sm text-gray-500">Ratings summary</p>
                   </div>
                 </div>
@@ -143,13 +163,16 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-2xl shadow border p-6">
               <h3 className="text-xl font-semibold mb-4">User Referral Stats</h3>
 
-              <div className="p-4 bg-blue-50 rounded-lg border flex items-center justify-between">
+              <Link
+                href="/admin/wallet"
+                className="p-4 bg-blue-50 rounded-lg border flex items-center justify-between hover:bg-blue-100"
+              >
                 <div>
-                  <p className="font-semibold text-gray-700">Total Referrals</p>
-                  <h2 className="text-3xl font-bold">0</h2>
+                  <p className="font-semibold text-gray-700">View Wallet</p>
+                  <h2 className="text-3xl font-bold">Go</h2>
                 </div>
                 <ArrowRight size={28} className="text-blue-700" />
-              </div>
+              </Link>
             </div>
           </div>
 
@@ -179,7 +202,7 @@ export default function AdminDashboard() {
   );
 }
 
-/* ----------------- REUSABLE COMPONENTS ------------------ */
+/* ----------------- API DATA FETCH ------------------ */
 
 function DashboardCard({ title, value, icon, color, link }: DashboardCardProps) {
   const colorMap = {

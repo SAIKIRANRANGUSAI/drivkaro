@@ -1,6 +1,5 @@
 "use client";
-import { Dispatch, SetStateAction, ReactNode } from "react";
-
+import { Dispatch, SetStateAction } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -21,6 +20,7 @@ import {
   Mail,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: Dispatch<SetStateAction<boolean>>;
@@ -38,19 +38,18 @@ interface SidebarSectionProps {
   isOpen: boolean;
 }
 
-
 export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
-
   return (
     <aside
       className={`
         fixed top-0 left-0 h-screen
         bg-[#1A202C] text-gray-100 shadow-2xl z-40
-        transition-all duration-300 flex flex-col
+        flex flex-col overflow-hidden
+        transition-all duration-300
         ${isOpen ? "w-72" : "w-20"}
       `}
     >
-      {/* TOP AREA */}
+      {/* TOP */}
       <div className="relative p-6 border-b border-gray-700/50 flex items-center justify-center">
         {isOpen ? (
           <h1 className="font-extrabold text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-gray-50 to-amber-300">
@@ -60,7 +59,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
           <span className="text-xl font-bold text-amber-300">DK</span>
         )}
 
-        {/* COLLAPSE BUTTON */}
+        {/* COLLAPSE BTN */}
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="absolute -right-4 top-1/2 -translate-y-1/2 bg-[#2D3748] border border-gray-700 
@@ -70,8 +69,14 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
         </button>
       </div>
 
-      {/* MENU */}
-      <nav className="flex-1 overflow-hidden custom-scrollbar px-4 py-6 space-y-1">
+      {/* SCROLL AREA */}
+      <nav
+        className="
+        flex-1 overflow-y-auto overflow-x-hidden
+        px-4 py-6 space-y-1
+        custom-scroll scroll-smooth
+      "
+      >
         <SidebarSection title="MAIN" isOpen={isOpen} />
         <SidebarItem icon={LayoutDashboard} title="Dashboard" link="/admin" isOpen={isOpen} />
 
@@ -95,7 +100,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
         <SidebarItem icon={Settings} title="Settings" link="/admin/settings" isOpen={isOpen} />
       </nav>
 
-      {/* FOOTER AREA */}
+      {/* FOOTER */}
       <div className="p-4 border-t border-gray-700/50 bg-[#151a24]">
         {isOpen ? (
           <div className="flex items-center justify-between">
@@ -105,10 +110,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
                   src="https://ui-avatars.com/api/?name=Admin&background=FFB74D&color=1A202C"
                   className="w-10 h-10 rounded-full border-2 border-amber-400"
                 />
-                <Mail
-                  size={12}
-                  className="absolute bottom-0 right-0 p-0.5 rounded-full bg-red-500 text-white"
-                />
+                <Mail size={12} className="absolute bottom-0 right-0 p-0.5 rounded-full bg-red-500 text-white" />
               </div>
 
               <div>
@@ -126,10 +128,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
                 src="https://ui-avatars.com/api/?name=A&background=FFB74D&color=1A202C"
                 className="w-10 h-10 rounded-full border-2 border-amber-400"
               />
-              <Mail
-                size={12}
-                className="absolute bottom-0 right-0 p-0.5 rounded-full bg-red-500 text-white"
-              />
+              <Mail size={12} className="absolute bottom-0 right-0 p-0.5 rounded-full bg-red-500 text-white" />
             </div>
 
             <LogoutButton />
@@ -145,7 +144,6 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
 /* ----------------------------------------------- */
 
 function SidebarItem({ icon: Icon, title, link, isOpen }: SidebarItemProps) {
-
   const pathname = usePathname();
   const isActive = pathname === link;
 
@@ -160,9 +158,9 @@ function SidebarItem({ icon: Icon, title, link, isOpen }: SidebarItemProps) {
           : "text-gray-400 hover:bg-gray-700/30 hover:text-gray-50"}
       `}
     >
-      <Icon size={20} className={`${isActive ? "text-amber-400" : "text-gray-400"}`} />
+      <Icon size={20} />
 
-      {/* Title (visible only when open) */}
+      {/* Title */}
       <span
         className={`
           text-sm whitespace-nowrap transition-all duration-300
@@ -172,7 +170,7 @@ function SidebarItem({ icon: Icon, title, link, isOpen }: SidebarItemProps) {
         {title}
       </span>
 
-      {/* Tooltip when collapsed */}
+      {/* Tooltip */}
       {!isOpen && (
         <span
           className="
@@ -189,7 +187,6 @@ function SidebarItem({ icon: Icon, title, link, isOpen }: SidebarItemProps) {
 }
 
 function SidebarSection({ title, isOpen }: SidebarSectionProps) {
-
   return (
     <div
       className={`

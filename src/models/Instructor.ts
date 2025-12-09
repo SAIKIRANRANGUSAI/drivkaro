@@ -6,13 +6,18 @@ export interface IInstructor extends Document {
   gender?: "male" | "female" | "other";
   dob?: Date;
   city?: string;
-  carTypes?: string[]; // ["Hatchback","Sedan","SUV"]
+  carTypes?: string[];
   vehicleNumber?: string;
   dlNumber?: string;
   dlImageUrl?: string;
   idProofType?: string;
   idProofUrl?: string;
   status: "pending" | "approved" | "rejected" | "blocked";
+
+  // NEW FIELDS 👇
+  rejectionMessage?: string;
+  approvedAt?: Date;
+  rejectedAt?: Date;
 }
 
 const InstructorSchema = new Schema<IInstructor>(
@@ -29,11 +34,17 @@ const InstructorSchema = new Schema<IInstructor>(
     dlImageUrl: { type: String },
     idProofType: { type: String },
     idProofUrl: { type: String },
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "blocked"],
       default: "pending",
     },
+
+    // NEW FIELDS 👇
+    rejectionMessage: { type: String, default: "" },
+    approvedAt: { type: Date },
+    rejectedAt: { type: Date },
   },
   { timestamps: true }
 );

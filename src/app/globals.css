@@ -56,5 +56,23 @@ body {
   background: #718096;
 }
 
+/* Custom Scrollbar */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: #1a202c;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 10px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #718096;
+}
+
+
+
+
 
 
