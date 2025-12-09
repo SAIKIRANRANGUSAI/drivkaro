@@ -404,21 +404,28 @@ import Booking from "@/models/Booking";
 import Pricing from "@/models/Pricing";
 import Coupon from "@/models/Coupon";
 
+function generateOtp() {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+//
+// ➕ CREATE BOOKING
+//
 export async function POST(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
 
-    // ---- USER ID ----
+    // ### HEADER VALIDATION ###
     const userId = req.headers.get("x-user-id");
     if (!userId) {
       return NextResponse.json(
-        { success: false, message: "User ID missing" },
+        { success: false, message: "Missing x-user-id header" },
         { status: 400 }
       );
     }
 
-    // ---- REQUIRED FIELDS ----
+    // ### REQUIRED FIELDS ###
     const required = ["pickupLocation", "startDate", "endDate", "carType", "slotTime"];
     for (const field of required) {
       if (!body[field]) {
@@ -429,32 +436,23 @@ export async function POST(req: Request) {
       }
     }
 
-    // ---- LOCATION VALIDATION ----
+    // ### PICKUP VALIDATION ###
     const pickup = body.pickupLocation;
-
-    if (
-      !pickup ||
-      !pickup.name ||
-      pickup.lat === undefined ||
-      pickup.lng === undefined
-    ) {
+    if (!pickup?.name || pickup.lat == null || pickup.lng == null) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "pickupLocation must have name, lat, lng",
-        },
+        { success: false, message: "pickupLocation must have name, lat, lng" },
         { status: 400 }
       );
     }
 
-    // ---- AUTO DROP LOCATION ----
+    // AUTO FILL DROP LOCATION
     const dropLocation = body.dropLocation || pickup;
 
-    // ---- PRICING ----
+    // ### PRICING ###
     const pricing = await Pricing.findOne({ carType: body.carType });
     if (!pricing) {
       return NextResponse.json(
-        { success: false, message: "No pricing found" },
+        { success: false, message: "Pricing not found for this car type" },
         { status: 404 }
       );
     }
@@ -462,33 +460,37 @@ export async function POST(req: Request) {
     const pricePerDay = pricing.pricePerDay;
     const gstPercent = pricing.gstPercent || 18;
 
-    // ---- DAYS ----
+    // ### DAYS GENERATION ###
     const days: any[] = [];
     const start = new Date(body.startDate);
     const end = new Date(body.endDate);
     let current = new Date(start);
+    let dayNo = 1;
 
     while (current <= end) {
       days.push({
+        dayNo,
         date: current.toISOString().split("T")[0],
         slot: body.slotTime,
         status: "pending",
-        startOtp: null,
-        endOtp: null,
+        startOtp: generateOtp(),
+        endOtp: generateOtp(),
         instructorId: null,
       });
+
+      dayNo++;
       current.setDate(current.getDate() + 1);
     }
 
     const daysCount = days.length;
 
-    // ---- BASE AMOUNT & GST ----
+    // ### AMOUNT ###
     const amount = pricePerDay * daysCount;
     const gst = Math.round((amount * gstPercent) / 100);
-
-    // ---- COUPON ----
-    let discount = 0;
     let finalAmount = amount + gst;
+
+    // ### COUPON ###
+    let discount = 0;
 
     if (body.couponCode) {
       const cleanCode = body.couponCode.trim().toUpperCase();
@@ -508,31 +510,29 @@ export async function POST(req: Request) {
 
         if (discount > coupon.maxDiscount) discount = coupon.maxDiscount;
 
-        finalAmount = amount + gst - discount;
+        finalAmount -= discount;
 
-        const usage = coupon.usedBy.find(
-          (u: any) => u.userId.toString() === userId
-        );
-
+        const usage = coupon.usedBy.find((u: any) => u.userId.toString() === userId);
         if (!usage) {
           coupon.usedBy.push({ userId, count: 1 });
         } else {
           usage.count += 1;
         }
+
         await coupon.save();
       }
     }
 
-    // ---- WALLET ----
-    const walletUsed = body.walletUsed || 0;
-    finalAmount = finalAmount - walletUsed;
+    // ### WALLET ###
+    const walletUsed = Number(body.walletUsed || 0);
+    finalAmount -= walletUsed;
     if (finalAmount < 0) finalAmount = 0;
 
-    // ---- BOOKED FOR ----
+    // ### BOOKED FOR ###
     const bookedFor = body.bookedFor || "self";
     const otherUserId = bookedFor === "other" ? body.otherUserId : null;
 
-    // ---- CREATE BOOKING ----
+    // ### CREATE BOOKING ###
     const booking = await Booking.create({
       userId,
       bookingId: "BK" + Math.floor(100000 + Math.random() * 900000),
@@ -542,8 +542,6 @@ export async function POST(req: Request) {
 
       carType: body.carType,
       pricePerDay,
-
-      preferredGender: body.preferredGender || null,
       slotTime: body.slotTime,
 
       daysCount,
@@ -569,7 +567,7 @@ export async function POST(req: Request) {
       {
         success: true,
         message: "Booking created successfully",
-        data: { booking },
+        data: booking,
       },
       { status: 201 }
     );
@@ -582,6 +580,9 @@ export async function POST(req: Request) {
   }
 }
 
+//
+// 📌 GET BOOKINGS LIST
+//
 export async function GET(req: Request) {
   try {
     await connectDB();
@@ -589,17 +590,18 @@ export async function GET(req: Request) {
     const userId = req.headers.get("x-user-id");
     if (!userId) {
       return NextResponse.json(
-        { success: false, message: "User ID missing" },
+        { success: false, message: "Missing x-user-id header" },
         { status: 400 }
       );
     }
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status") || "pending";
+    const status = searchParams.get("status") || undefined;
 
-    const bookings = await Booking.find({ userId, status }).sort({
-      createdAt: -1,
-    });
+    const query: any = { userId };
+    if (status) query.status = status;
+
+    const bookings = await Booking.find(query).sort({ createdAt: -1 });
 
     return NextResponse.json(
       {
@@ -620,6 +622,7 @@ export async function GET(req: Request) {
     );
   }
 }
+
 
 
 

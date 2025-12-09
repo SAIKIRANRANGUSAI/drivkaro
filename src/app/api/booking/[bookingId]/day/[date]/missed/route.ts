@@ -19,34 +19,16 @@ export async function POST(
 
     await connectDB();
 
-    // -------------------------------------
-    // 1. FIND or CREATE BookingDay record
-    // -------------------------------------
-    let bookingDay = await BookingDay.findOne({ booking: bookingId, date });
-    if (!bookingDay) {
-      bookingDay = new BookingDay({ booking: bookingId, date });
+    // ✔ find booking by ObjectId or bookingId
+    let booking = null;
+
+    if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
+      booking = await Booking.findById(bookingId);
     }
 
-    bookingDay.status = "missed";
-    await bookingDay.save();
-
-    // -------------------------------------
-    // 2. UPDATE BOOKING DAYS ARRAY STATUS
-    // -------------------------------------
-    await Booking.updateOne(
-      { _id: bookingId, "days.date": date },
-      {
-        $set: {
-          "days.$.status": "missed",
-        },
-      }
-    );
-
-    // -------------------------------------
-    // 3. ADD EXTRA DAY
-    // -------------------------------------
-
-    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      booking = await Booking.findOne({ bookingId });
+    }
 
     if (!booking) {
       return NextResponse.json(
@@ -55,26 +37,92 @@ export async function POST(
       );
     }
 
-    // find last date in days array
-    const lastDay = booking.days[booking.days.length - 1];
-    const lastDate = new Date(lastDay.date);
+    // ❌ must be paid
+    if (!booking.paid) {
+      return NextResponse.json(
+        { success: false, message: "Payment incomplete, cannot mark missed" },
+        { status: 400 }
+      );
+    }
 
-    // add 1 day
+    // ❌ booking must be ongoing
+    if (booking.status !== "ongoing") {
+      return NextResponse.json(
+        { success: false, message: "Booking is not active/ongoing" },
+        { status: 400 }
+      );
+    }
+
+    // ✔ check correct day entry
+    const dayEntry = booking.days.find((d: any) => d.date === date);
+
+    if (!dayEntry) {
+      return NextResponse.json(
+        { success: false, message: "No day schedule found for this date" },
+        { status: 404 }
+      );
+    }
+
+    // ❌ prevent duplicate missed
+    if (dayEntry.status === "missed") {
+      return NextResponse.json(
+        { success: false, message: "Day already marked missed" },
+        { status: 400 }
+      );
+    }
+
+    // ❌ cannot mark if completed
+    if (dayEntry.status === "completed") {
+      return NextResponse.json(
+        { success: false, message: "Day already completed" },
+        { status: 400 }
+      );
+    }
+
+    // -------------------------------------
+    // 1️⃣ MARK MISSED (BookingDay DB)
+    // -------------------------------------
+
+    let bookingDay = await BookingDay.findOne({ booking: booking._id, date });
+
+    if (!bookingDay) {
+      bookingDay = new BookingDay({ booking: booking._id, date });
+    }
+
+    bookingDay.status = "missed";
+    bookingDay.missedAt = new Date();
+
+    await bookingDay.save();
+
+    // -------------------------------------
+    // 2️⃣ UPDATE EMBEDDED ARRAY
+    // -------------------------------------
+
+    dayEntry.status = "missed";
+    dayEntry.missedAt = new Date();
+
+    // -------------------------------------
+    // 3️⃣ ADD EXTRA DAY
+    // -------------------------------------
+
+    const last = booking.days[booking.days.length - 1];
+    const lastDate = new Date(last.date);
+
     lastDate.setDate(lastDate.getDate() + 1);
-
     const newDate = lastDate.toISOString().split("T")[0];
 
-    // push new day into booking.days
     booking.days.push({
+      dayNo: booking.days.length + 1,
       date: newDate,
-      slot: lastDay.slot, // same slot
+      slot: last.slot,
       status: "pending",
       startOtp: null,
       endOtp: null,
       instructorId: null,
+      startedAt: null,
+      completedAt: null,
     });
 
-    // increment day count
     booking.daysCount = booking.days.length;
 
     await booking.save();
@@ -82,7 +130,11 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: "Day marked missed. Extra day added.",
-      extraDayAdded: newDate,
+      data: {
+        missedDate: date,
+        extraDayDate: newDate,
+        totalDays: booking.days.length,
+      },
     });
 
   } catch (err) {

@@ -1,12 +1,21 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IBookingDay {
+  dayNo: number;                    // 1,2,3...
   date: string;                     // yyyy-mm-dd
   slot: string;                     // ex: "06:00 AM"
-  startOtp?: string | null;
-  endOtp?: string | null;
+
+  startOtp: string;                 // always string
+  endOtp: string;                   // always string
+
   status: "pending" | "started" | "completed" | "missed";
+
   instructorId?: mongoose.Types.ObjectId | null;
+  instructorName?: string | null;
+  instructorPhone?: string | null;
+
+  startedAt?: Date | null;
+  completedAt?: Date | null;
 }
 
 export interface IBooking extends Document {
@@ -58,11 +67,13 @@ export interface IBooking extends Document {
 
 const BookingDaySchema = new Schema<IBookingDay>(
   {
+    dayNo: { type: Number, required: true },
+
     date: { type: String, required: true },
     slot: { type: String, required: true },
 
-    startOtp: { type: String, default: null },
-    endOtp: { type: String, default: null },
+    startOtp: { type: String, default: "" },
+    endOtp: { type: String, default: "" },
 
     status: {
       type: String,
@@ -70,7 +81,17 @@ const BookingDaySchema = new Schema<IBookingDay>(
       default: "pending",
     },
 
-    instructorId: { type: Schema.Types.ObjectId, ref: "Instructor", default: null },
+    instructorId: {
+      type: Schema.Types.ObjectId,
+      ref: "Instructor",
+      default: null,
+    },
+
+    instructorName: { type: String, default: null },
+    instructorPhone: { type: String, default: null },
+
+    startedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
   },
   { _id: false }
 );
@@ -79,7 +100,12 @@ const BookingSchema = new Schema<IBooking>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
 
-    bookingId: { type: String, required: true, unique: true },
+    bookingId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true, // faster lookup
+    },
 
     pickupLocation: {
       name: { type: String, required: true },
@@ -104,7 +130,6 @@ const BookingSchema = new Schema<IBooking>(
     preferredGender: { type: String, enum: ["male", "female"], default: null },
     assignedGender: { type: String, enum: ["male", "female"], default: null },
 
-    // Payment details
     couponCode: { type: String, default: null },
     amount: { type: Number, default: 0 },
     gst: { type: Number, default: 0 },
@@ -119,7 +144,11 @@ const BookingSchema = new Schema<IBooking>(
     bookedFor: { type: String, enum: ["self", "other"], default: "self" },
     otherUserId: { type: Schema.Types.ObjectId, ref: "OtherUser", default: null },
 
-    assignedInstructorId: { type: Schema.Types.ObjectId, ref: "Instructor", default: null },
+    assignedInstructorId: {
+      type: Schema.Types.ObjectId,
+      ref: "Instructor",
+      default: null,
+    },
 
     status: {
       type: String,

@@ -20,38 +20,114 @@ export async function POST(
 
     await connectDB();
 
-    // Find existing booking day
-    const bookingDay = await BookingDay.findOne({ booking: bookingId, date });
-    if (!bookingDay) {
+    // --------------------------
+    // 1️⃣ Lookup booking
+    // --------------------------
+    let booking = null;
+
+    if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
+      booking = await Booking.findById(bookingId);
+    }
+
+    if (!booking) {
+      booking = await Booking.findOne({ bookingId });
+    }
+
+    if (!booking) {
       return NextResponse.json(
-        { success: false, message: "Booking day not found" },
+        { success: false, message: "Booking not found" },
         { status: 404 }
       );
     }
 
-    // Update
-    bookingDay.endOtp = otp;
-    bookingDay.status = "completed";
+    // must be paid and ongoing
+    if (!booking.paid || booking.status !== "ongoing") {
+      return NextResponse.json(
+        { success: false, message: "Booking not active" },
+        { status: 400 }
+      );
+    }
+
+    // --------------------------
+    // 2️⃣ Get correct day
+    // --------------------------
+    const dayEntry = booking.days.find((d: any) => d.date === date);
+
+    if (!dayEntry) {
+      return NextResponse.json(
+        { success: false, message: "No schedule found for this date" },
+        { status: 404 }
+      );
+    }
+
+    // must have start first
+    if (!dayEntry.startOtp) {
+      return NextResponse.json(
+        { success: false, message: "Start session not done yet" },
+        { status: 400 }
+      );
+    }
+
+    // must NOT be completed already
+    if (dayEntry.status === "completed") {
+      return NextResponse.json(
+        { success: false, message: "Day already completed" },
+        { status: 400 }
+      );
+    }
+
+    // --------------------------
+    // 3️⃣ Validate OTP
+    // --------------------------
+
+    if (dayEntry.endOtp !== otp) {
+      return NextResponse.json(
+        { success: false, message: "Invalid end OTP" },
+        { status: 400 }
+      );
+    }
+
+    // --------------------------
+    // 4️⃣ Save BookingDay entry
+    // --------------------------
+    let bookingDay = await BookingDay.findOne({ booking: booking._id, date });
+
+    if (!bookingDay) {
+      bookingDay = new BookingDay({ booking: booking._id, date });
+    }
+
     bookingDay.endVerifiedAt = new Date();
+    bookingDay.status = "completed";
 
     await bookingDay.save();
 
-    // UPDATE DAYS ARRAY IN BOOKING
-    await Booking.updateOne(
-      { _id: bookingId, "days.date": date },
-      {
-        $set: {
-          "days.$.endOtp": otp,
-          "days.$.status": "completed",
-          "days.$.endVerifiedAt": new Date(),
-        },
-      }
-    );
+    // --------------------------
+    // 5️⃣ Update embedded array
+    // --------------------------
+    dayEntry.status = "completed";
+    dayEntry.endVerifiedAt = new Date();
+
+    await booking.save();
+
+    // --------------------------
+    // 6️⃣ Auto complete booking if last day
+    // --------------------------
+    const allDone = booking.days.every((d: any) => d.status === "completed");
+
+    if (allDone) {
+      booking.status = "completed";
+      booking.completedAt = new Date();
+      await booking.save();
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Day session ended",
-      day: bookingDay,
+      message: "Day session completed",
+      data: {
+        date,
+        status: dayEntry.status,
+        bookingStatus: booking.status,
+      },
     });
 
   } catch (err) {

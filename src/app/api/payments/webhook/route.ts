@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 
 export async function POST(req: NextRequest) {
@@ -11,7 +11,10 @@ export async function POST(req: NextRequest) {
     // ====== VALIDATION ======
     if (!bookingId || !txnRef || !status) {
       return NextResponse.json(
-        { success: false, message: "bookingId, txnRef & status are required" },
+        {
+          success: false,
+          message: "bookingId, txnRef & status are required",
+        },
         { status: 400 }
       );
     }
@@ -24,7 +27,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ====== FIND BOOKING ======
-    const booking = await Booking.findById(bookingId);
+    let booking = null;
+
+    // Try ObjectId
+    if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
+      booking = await Booking.findById(bookingId);
+    }
+
+    // Try bookingId format BKxxxx
+    if (!booking) {
+      booking = await Booking.findOne({ bookingId });
+    }
+
     if (!booking) {
       return NextResponse.json(
         { success: false, message: "Booking not found" },
@@ -41,7 +55,7 @@ export async function POST(req: NextRequest) {
       booking.status = "ongoing";
     } else {
       booking.paid = false;
-      // keep same status "pending"
+      booking.status = "pending"; // keep pending if failed
     }
 
     await booking.save();
@@ -50,13 +64,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "Payment webhook processed",
-      booking,
+      data: {
+        bookingId: booking.bookingId,
+        status: booking.paymentStatus,
+        paid: booking.paid,
+      },
     });
 
   } catch (err) {
-    console.error("Webhook Error:", err);
+    console.error("WEBHOOK ERROR:", err);
     return NextResponse.json(
-      { success: false, message: "Internal server error" },
+      {
+        success: false,
+        message: "Internal server error",
+      },
       { status: 500 }
     );
   }

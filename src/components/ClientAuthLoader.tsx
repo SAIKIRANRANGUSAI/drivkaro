@@ -1,14 +1,122 @@
-"use client";
+import { NextRequest, NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongoose";
+import Coupon from "@/models/Coupon";
 
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+export async function POST(req: NextRequest) {
+  try {
+    await connectDB();
 
-export default function ClientAuthLoader() {
-  const auth = useAuth();
+    const { code, amount } = await req.json();
+    const userId = req.headers.get("x-user-id");
 
-  useEffect(() => {
-    // Hook auto-refreshes token on mount
-  }, []);
+    // ---------------- REQUIRED ----------------
+    if (!code) {
+      return NextResponse.json(
+        { success: false, message: "Coupon code required" },
+        { status: 400 }
+      );
+    }
 
-  return null;
+    if (amount == null || isNaN(amount)) {
+      return NextResponse.json(
+        { success: false, message: "Valid amount required" },
+        { status: 400 }
+      );
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: "User ID required" },
+        { status: 400 }
+      );
+    }
+
+    const cleanCode = String(code).trim().toUpperCase();
+    const today = new Date();
+
+    // ---------------- FIND VALID COUPON ----------------
+    const coupon = await Coupon.findOne({
+      code: cleanCode,
+      active: true,
+      from: { $lte: today },
+      to: { $gte: today },
+    });
+
+    if (!coupon) {
+      return NextResponse.json({
+        success: false,
+        valid: false,
+        message: "Invalid or expired coupon",
+        discount: 0,
+        finalAmount: amount,
+      });
+    }
+
+    // ---------------- MIN AMOUNT ----------------
+    if (amount < coupon.minAmount) {
+      return NextResponse.json({
+        success: false,
+        valid: false,
+        message: `Minimum amount ₹${coupon.minAmount} required`,
+        discount: 0,
+        finalAmount: amount,
+      });
+    }
+
+    // ---------------- USAGE LIMIT ----------------
+    const usage = coupon.usedBy.find(
+      (u: { userId: any; count: number }) => u.userId.toString() === userId
+    );
+
+    if (usage && usage.count >= coupon.maxUsagePerUser) {
+      return NextResponse.json({
+        success: false,
+        valid: false,
+        message: "Coupon usage limit reached",
+        discount: 0,
+        finalAmount: amount,
+      });
+    }
+
+    // ---------------- CALCULATE DISCOUNT ----------------
+    let discount = coupon.isPercent
+      ? Math.round((amount * coupon.amount) / 100)
+      : coupon.amount;
+
+    // Max discount limit
+    if (discount > coupon.maxDiscount) {
+      discount = coupon.maxDiscount;
+    }
+
+    // Should not go negative
+    if (discount > amount) discount = amount;
+
+    const finalAmount = amount - discount;
+
+    // ---------------- UPDATE USAGE ----------------
+    if (!usage) {
+      coupon.usedBy.push({ userId, count: 1 });
+    } else {
+      usage.count += 1;
+    }
+
+    await coupon.save();
+
+    return NextResponse.json({
+      success: true,
+      valid: true,
+      message: "Coupon applied",
+      discount,
+      finalAmount,
+      remaining:
+        coupon.maxUsagePerUser - (usage ? usage.count : 1),
+    });
+
+  } catch (err: any) {
+    console.error("COUPON APPLY ERROR:", err);
+    return NextResponse.json(
+      { success: false, message: "Server error" },
+      { status: 500 }
+    );
+  }
 }

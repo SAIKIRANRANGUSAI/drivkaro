@@ -3,14 +3,13 @@ import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 
 //
-// GET BOOKING
+// ✅ GET BOOKING DETAILS
 //
-export async function GET(req: Request, context: any) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
     await connectDB();
 
-    const { id } = (await context?.params) || {};
-
+    const id = params?.id;
     if (!id) {
       return NextResponse.json(
         { success: false, message: "Booking ID missing", data: null },
@@ -28,12 +27,12 @@ export async function GET(req: Request, context: any) {
 
     let booking = null;
 
-    // Try MongoDB _id
+    // 🔍 Check Mongo _id
     if (/^[0-9a-fA-F]{24}$/.test(id)) {
       booking = await Booking.findById(id);
     }
 
-    // Try bookingId (BK******)
+    // 🔍 Check bookingId (BK******)
     if (!booking) {
       booking = await Booking.findOne({ bookingId: id });
     }
@@ -45,7 +44,7 @@ export async function GET(req: Request, context: any) {
       );
     }
 
-    // Ownership check
+    // 🔒 Ownership check
     if (booking.userId.toString() !== userId) {
       return NextResponse.json(
         { success: false, message: "Forbidden", data: null },
@@ -53,11 +52,31 @@ export async function GET(req: Request, context: any) {
       );
     }
 
+    // 🕒 OTP only for TODAY
+    const today = new Date().toISOString().split("T")[0];
+
+    const todayDay = booking.days.find(
+      (d: any) => d.date === today
+    );
+
+    const otp = todayDay
+      ? {
+          dayNo: todayDay.dayNo,
+          date: todayDay.date,
+          startOtp: todayDay.startOtp,
+          endOtp: todayDay.endOtp,
+          status: todayDay.status,
+        }
+      : null;
+
     return NextResponse.json(
       {
         success: true,
-        message: "Booking fetched",
-        data: { booking },
+        message: "Booking fetched successfully",
+        data: {
+          booking,
+          todayOtp: otp, // 🔥 shows OTP only for today's lesson
+        },
       },
       { status: 200 }
     );
@@ -71,14 +90,13 @@ export async function GET(req: Request, context: any) {
 }
 
 //
-// CANCEL BOOKING
+// ❌ CANCEL BOOKING
 //
-export async function DELETE(req: Request, context: any) {
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
     await connectDB();
 
-    const { id } = await context.params;
-
+    const id = params?.id;
     if (!id) {
       return NextResponse.json(
         { success: false, message: "Booking ID missing", data: null },
@@ -96,7 +114,7 @@ export async function DELETE(req: Request, context: any) {
 
     let booking = null;
 
-    // Try MongoDB _id
+    // Try _id
     if (/^[0-9a-fA-F]{24}$/.test(id)) {
       booking = await Booking.findById(id);
     }
@@ -113,7 +131,7 @@ export async function DELETE(req: Request, context: any) {
       );
     }
 
-    // Ownership check
+    // Ownership
     if (booking.userId.toString() !== userId) {
       return NextResponse.json(
         { success: false, message: "Forbidden", data: null },
@@ -121,7 +139,7 @@ export async function DELETE(req: Request, context: any) {
       );
     }
 
-    // Cancel booking
+    // ❌ Cancel Logic
     booking.status = "cancelled";
     await booking.save();
 
