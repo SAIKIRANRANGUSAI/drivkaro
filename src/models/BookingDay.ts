@@ -2,13 +2,14 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IBookingDay extends Document {
   booking: mongoose.Types.ObjectId;
-  date: string; // YYYY-MM-DD (same as URL param)
-  dayNumber?: number; // optional if you want
+  date: string;
+  dayNumber?: number;
   status: "pending" | "ongoing" | "completed" | "missed";
   startOtp?: string;
   endOtp?: string;
   startVerifiedAt?: Date;
   endVerifiedAt?: Date;
+  missedAt?: Date;    // 👈 ADD THIS
 }
 
 const BookingDaySchema = new Schema<IBookingDay>(
@@ -19,7 +20,7 @@ const BookingDaySchema = new Schema<IBookingDay>(
       required: true,
       index: true,
     },
-    date: { type: String, required: true }, // "2025-12-20"
+    date: { type: String, required: true },
     dayNumber: { type: Number },
     status: {
       type: String,
@@ -30,6 +31,7 @@ const BookingDaySchema = new Schema<IBookingDay>(
     endOtp: { type: String },
     startVerifiedAt: { type: Date },
     endVerifiedAt: { type: Date },
+    missedAt: { type: Date }, // 👈 ADD HERE
   },
   { timestamps: true }
 );

@@ -1,15 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 
 //
-// ✅ GET BOOKING DETAILS
+// GET BOOKING DETAILS
 //
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     await connectDB();
 
-    const id = params?.id;
+    const { id } = await context.params; // 👈 FIXED
+
     if (!id) {
       return NextResponse.json(
         { success: false, message: "Booking ID missing", data: null },
@@ -17,7 +21,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       );
     }
 
-    const userId = req.headers.get("x-user-id");
+    const userId = request.headers.get("x-user-id");
     if (!userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized", data: null },
@@ -27,12 +31,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     let booking = null;
 
-    // 🔍 Check Mongo _id
     if (/^[0-9a-fA-F]{24}$/.test(id)) {
       booking = await Booking.findById(id);
     }
 
-    // 🔍 Check bookingId (BK******)
     if (!booking) {
       booking = await Booking.findOne({ bookingId: id });
     }
@@ -44,7 +46,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       );
     }
 
-    // 🔒 Ownership check
     if (booking.userId.toString() !== userId) {
       return NextResponse.json(
         { success: false, message: "Forbidden", data: null },
@@ -52,12 +53,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       );
     }
 
-    // 🕒 OTP only for TODAY
     const today = new Date().toISOString().split("T")[0];
 
-    const todayDay = booking.days.find(
-      (d: any) => d.date === today
-    );
+    const todayDay = booking.days.find((d: any) => d.date === today);
 
     const otp = todayDay
       ? {
@@ -73,10 +71,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       {
         success: true,
         message: "Booking fetched successfully",
-        data: {
-          booking,
-          todayOtp: otp, // 🔥 shows OTP only for today's lesson
-        },
+        data: { booking, todayOtp: otp },
       },
       { status: 200 }
     );
@@ -90,13 +85,17 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 //
-// ❌ CANCEL BOOKING
+// CANCEL BOOKING
 //
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     await connectDB();
 
-    const id = params?.id;
+    const { id } = await context.params; // 👈 FIXED
+
     if (!id) {
       return NextResponse.json(
         { success: false, message: "Booking ID missing", data: null },
@@ -104,7 +103,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       );
     }
 
-    const userId = req.headers.get("x-user-id");
+    const userId = request.headers.get("x-user-id");
     if (!userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized", data: null },
@@ -114,12 +113,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
     let booking = null;
 
-    // Try _id
     if (/^[0-9a-fA-F]{24}$/.test(id)) {
       booking = await Booking.findById(id);
     }
 
-    // Try bookingId
     if (!booking) {
       booking = await Booking.findOne({ bookingId: id });
     }
@@ -131,7 +128,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       );
     }
 
-    // Ownership
     if (booking.userId.toString() !== userId) {
       return NextResponse.json(
         { success: false, message: "Forbidden", data: null },
@@ -139,16 +135,11 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       );
     }
 
-    // ❌ Cancel Logic
     booking.status = "cancelled";
     await booking.save();
 
     return NextResponse.json(
-      {
-        success: true,
-        message: "Booking cancelled successfully",
-        data: null,
-      },
+      { success: true, message: "Booking cancelled successfully", data: null },
       { status: 200 }
     );
   } catch (err) {
