@@ -3,13 +3,15 @@ import { connectDB } from "@/lib/mongoose";
 import Otp from "@/models/Otp";
 import Instructor from "@/models/Instructor";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
-    const body = await req.json();
-    const { mobile, otp } = body;
+    const { mobile, otp } = await req.json();
+
+    // ---------------- VALIDATIONS ----------------
 
     if (!mobile || !otp) {
       return NextResponse.json(
@@ -18,16 +20,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // hash OTP
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid mobile number" },
+        { status: 400 }
+      );
+    }
+
+    if (!/^\d{6}$/.test(otp)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid OTP format" },
+        { status: 400 }
+      );
+    }
+
+    // ---------------- FIND OTP ----------------
+
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // find recent OTP
     const record = await Otp.findOne({
       phone: mobile,
       otpHash,
-      used: { $ne: true },
-      expiresAt: { $gt: new Date() }
-    });
+      used: false,
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
 
     if (!record) {
       return NextResponse.json(
@@ -36,24 +52,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // mark used
+    // ---------------- MARK USED ----------------
     record.used = true;
     await record.save();
 
-    // find instructor
+    // ---------------- FIND INSTRUCTOR ----------------
+
     let instructor = await Instructor.findOne({ mobile });
 
     if (!instructor) {
       instructor = await Instructor.create({
+        fullName: "",
         mobile,
-        status: "pending"
+        status: "pending",
       });
     }
 
+    // ---------------- GENERATE JWT ----------------
+
+    const tokenPayload = {
+      id: instructor._id.toString(),
+      mobile: instructor.mobile,
+      role: "instructor",
+    };
+
+    const accessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET!, {
+      expiresIn: "7d",
+    });
+
+    // ---------------- RESPONSE ----------------
+
     return NextResponse.json({
       success: true,
-      instructor,
-      accessToken: "jwt_token_here"
+      message: "OTP verified successfully",
+      instructor: {
+        id: instructor._id,
+        fullName: instructor.fullName,
+        mobile: instructor.mobile,
+        status: instructor.status,
+      },
+      accessToken,
     });
   } catch (err) {
     console.error("Verify OTP error:", err);
