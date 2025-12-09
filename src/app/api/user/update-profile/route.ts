@@ -14,50 +14,99 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
+    // === VALIDATE AUTH HEADER ===
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized" },
+        {
+          success: false,
+          message: "Missing Authorization header",
+          data: null,
+        },
         { status: 401 }
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const parts = authHeader.split(" ");
+    if (parts.length !== 2 || parts[0] !== "Bearer") {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Authorization header format must be 'Bearer <token>'",
+          data: null,
+        },
+        { status: 401 }
+      );
+    }
 
-    // Narrow token type for safety
-    const rawPayload = verifyAccessToken(token);
+    const token = parts[1];
+
+    // === VERIFY TOKEN ===
+    let rawPayload: any;
+    try {
+      rawPayload = verifyAccessToken(token);
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid or expired access token",
+          data: null,
+        },
+        { status: 401 }
+      );
+    }
+
     const decoded = rawPayload as TokenPayload;
-
     if (!decoded?.userId) {
       return NextResponse.json(
-        { success: false, message: "Invalid token" },
+        {
+          success: false,
+          message: "Invalid token payload",
+          data: null,
+        },
         { status: 401 }
       );
     }
 
+    // === FIND USER ===
     const user = await User.findById(decoded.userId);
     if (!user) {
       return NextResponse.json(
-        { success: false, message: "User not found" },
+        {
+          success: false,
+          message: "User not found",
+          data: null,
+        },
         { status: 404 }
       );
     }
 
-    if (body.fullName) user.fullName = body.fullName;
-    if (body.email) user.email = body.email;
-    if (body.gender) user.gender = body.gender;
+    // === UPDATE FIELDS ===
+    if (body.fullName !== undefined) user.fullName = body.fullName;
+    if (body.email !== undefined) user.email = body.email;
+    if (body.gender !== undefined) user.gender = body.gender;
 
     await user.save();
 
-    return NextResponse.json({
-      success: true,
-      message: "Profile updated",
-      user,
-    });
-  } catch (err: any) {
-    console.error(err);
+    // === SUCCESS RESPONSE ===
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      {
+        success: true,
+        message: "Profile updated successfully",
+        data: {
+          user,
+        },
+      },
+      { status: 200 }
+    );
+  } catch (err: any) {
+    console.error("Profile Update Error:", err);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Server error",
+        data: null,
+      },
       { status: 500 }
     );
   }

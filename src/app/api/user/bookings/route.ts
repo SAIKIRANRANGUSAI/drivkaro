@@ -409,26 +409,54 @@ export async function POST(req: Request) {
     await connectDB();
     const body = await req.json();
 
+    // ---- USER ID ----
     const userId = req.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json({ message: "User ID missing" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "User ID missing" },
+        { status: 400 }
+      );
     }
 
-    // REQUIRED FIELDS
+    // ---- REQUIRED FIELDS ----
     const required = ["pickupLocation", "startDate", "endDate", "carType", "slotTime"];
     for (const field of required) {
       if (!body[field]) {
         return NextResponse.json(
-          { message: `${field} is required` },
+          { success: false, message: `${field} is required` },
           { status: 400 }
         );
       }
     }
 
+    // ---- LOCATION VALIDATION ----
+    const pickup = body.pickupLocation;
+
+    if (
+      !pickup ||
+      !pickup.name ||
+      pickup.lat === undefined ||
+      pickup.lng === undefined
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "pickupLocation must have name, lat, lng",
+        },
+        { status: 400 }
+      );
+    }
+
+    // ---- AUTO DROP LOCATION ----
+    const dropLocation = body.dropLocation || pickup;
+
     // ---- PRICING ----
     const pricing = await Pricing.findOne({ carType: body.carType });
     if (!pricing) {
-      return NextResponse.json({ message: "No pricing found" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "No pricing found" },
+        { status: 404 }
+      );
     }
 
     const pricePerDay = pricing.pricePerDay;
@@ -449,13 +477,12 @@ export async function POST(req: Request) {
         endOtp: null,
         instructorId: null,
       });
-
       current.setDate(current.getDate() + 1);
     }
 
     const daysCount = days.length;
 
-    // ---- BASE ----
+    // ---- BASE AMOUNT & GST ----
     const amount = pricePerDay * daysCount;
     const gst = Math.round((amount * gstPercent) / 100);
 
@@ -464,8 +491,8 @@ export async function POST(req: Request) {
     let finalAmount = amount + gst;
 
     if (body.couponCode) {
-      const today = new Date();
       const cleanCode = body.couponCode.trim().toUpperCase();
+      const today = new Date();
 
       const coupon = await Coupon.findOne({
         code: cleanCode,
@@ -474,33 +501,25 @@ export async function POST(req: Request) {
         to: { $gte: today },
       });
 
-      if (coupon) {
-        // MIN AMOUNT
-        if (amount >= coupon.minAmount) {
-          // % or FLAT
-          discount = coupon.isPercent
-            ? Math.round((amount * coupon.amount) / 100)
-            : coupon.amount;
+      if (coupon && amount >= coupon.minAmount) {
+        discount = coupon.isPercent
+          ? Math.round((amount * coupon.amount) / 100)
+          : coupon.amount;
 
-          // MAX DISCOUNT
-          if (discount > coupon.maxDiscount) discount = coupon.maxDiscount;
+        if (discount > coupon.maxDiscount) discount = coupon.maxDiscount;
 
-          finalAmount = amount + gst - discount;
+        finalAmount = amount + gst - discount;
 
-          // UPDATE usage
-          const usage = coupon.usedBy.find(
-  (u: { userId: any; count: number }) => u.userId.toString() === userId
-);
+        const usage = coupon.usedBy.find(
+          (u: any) => u.userId.toString() === userId
+        );
 
-
-          if (!usage) {
-            coupon.usedBy.push({ userId, count: 1 });
-          } else {
-            usage.count += 1;
-          }
-
-          await coupon.save();
+        if (!usage) {
+          coupon.usedBy.push({ userId, count: 1 });
+        } else {
+          usage.count += 1;
         }
+        await coupon.save();
       }
     }
 
@@ -518,8 +537,8 @@ export async function POST(req: Request) {
       userId,
       bookingId: "BK" + Math.floor(100000 + Math.random() * 900000),
 
-      pickupLocation: body.pickupLocation,
-      dropLocation: body.dropLocation || body.pickupLocation,
+      pickupLocation: pickup,
+      dropLocation,
 
       carType: body.carType,
       pricePerDay,
@@ -547,13 +566,19 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(
-      { success: true, booking },
+      {
+        success: true,
+        message: "Booking created successfully",
+        data: { booking },
+      },
       { status: 201 }
     );
-
   } catch (error) {
     console.error("BOOKING POST ERROR:", error);
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: "Server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -563,26 +588,38 @@ export async function GET(req: Request) {
 
     const userId = req.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json({ message: "User ID missing" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "User ID missing" },
+        { status: 400 }
+      );
     }
 
-    // ?status=ongoing
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") || "pending";
 
-    // FIND BOOKINGS
-    const bookings = await Booking.find({
-      userId,
-      status,
-    }).sort({ createdAt: -1 });
+    const bookings = await Booking.find({ userId, status }).sort({
+      createdAt: -1,
+    });
 
     return NextResponse.json(
-      { success: true, count: bookings.length, bookings },
+      {
+        success: true,
+        message: "Bookings fetched successfully",
+        data: {
+          count: bookings.length,
+          bookings,
+        },
+      },
       { status: 200 }
     );
   } catch (err) {
     console.error("BOOKING GET ERROR:", err);
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: "Server error" },
+      { status: 500 }
+    );
   }
 }
+
+
 

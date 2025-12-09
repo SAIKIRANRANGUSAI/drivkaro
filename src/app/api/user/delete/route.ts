@@ -12,41 +12,81 @@ export async function DELETE(req: NextRequest) {
   try {
     await connectDB();
 
+    // === VALIDATE AUTH HEADER ===
     const authHeader = req.headers.get("authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json(
-        { message: "Missing or invalid token" },
+        {
+          success: false,
+          message: "Missing or invalid Authorization header",
+          data: null,
+        },
         { status: 401 }
       );
     }
 
     const token = authHeader.split(" ")[1];
 
-    // Get raw token payload
-    const rawPayload = verifyAccessToken(token);
-
-    // Narrow type so TS knows userId exists
-    const payload = rawPayload as TokenPayload;
-
-    if (!payload?.userId) {
+    // === VERIFY TOKEN ===
+    let rawPayload: any;
+    try {
+      rawPayload = verifyAccessToken(token);
+    } catch {
       return NextResponse.json(
-        { message: "Invalid or expired token" },
+        {
+          success: false,
+          message: "Invalid or expired access token",
+          data: null,
+        },
         { status: 401 }
       );
     }
 
-    // Delete user
-    await User.findByIdAndDelete(payload.userId);
+    const payload = rawPayload as TokenPayload;
 
-    return NextResponse.json({
-      success: true,
-      message: "Account deleted successfully",
-    });
+    if (!payload?.userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid token payload",
+          data: null,
+        },
+        { status: 401 }
+      );
+    }
+
+    // === DELETE USER ===
+    const deleted = await User.findByIdAndDelete(payload.userId);
+
+    if (!deleted) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "User not found",
+          data: null,
+        },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Account deleted successfully",
+        data: null,
+      },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error("DELETE USER ERROR → ", error);
+
     return NextResponse.json(
-      { message: "Server error", error: error.message },
+      {
+        success: false,
+        message: "Server error",
+        data: null,
+      },
       { status: 500 }
     );
   }

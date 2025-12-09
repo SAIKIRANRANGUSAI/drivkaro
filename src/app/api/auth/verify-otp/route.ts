@@ -10,75 +10,126 @@ export async function POST(req: Request) {
     await connectDB();
 
     const { mobile, otp } = await req.json();
+
+    // === VALIDATION ===
     if (!mobile || !otp) {
       return NextResponse.json(
-        { success: false, message: "Missing fields" },
+        {
+          success: false,
+          message: "Mobile and OTP are required",
+          data: null,
+        },
         { status: 400 }
       );
     }
 
-    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    if (!/^\d{10}$/.test(mobile)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid mobile number",
+          data: null,
+        },
+        { status: 422 }
+      );
+    }
 
-    // Find OTP record
+    if (!/^\d{6}$/.test(otp)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid OTP format",
+          data: null,
+        },
+        { status: 422 }
+      );
+    }
+
+    // === FIND OTP ===
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
     const record = await Otp.findOne({ phone: mobile, used: false });
 
     if (!record) {
       return NextResponse.json(
-        { success: false, message: "OTP expired or not found" },
+        {
+          success: false,
+          message: "OTP expired or not found",
+          data: null,
+        },
         { status: 400 }
       );
     }
 
-    // Check expiration
+    // === EXPIRY CHECK ===
     if (record.expiresAt < new Date()) {
       return NextResponse.json(
-        { success: false, message: "OTP expired" },
+        {
+          success: false,
+          message: "OTP expired",
+          data: null,
+        },
         { status: 400 }
       );
     }
 
-    // Compare OTP
+    // === HASH COMPARE ===
     if (record.otpHash !== otpHash) {
       return NextResponse.json(
-        { success: false, message: "Invalid OTP" },
+        {
+          success: false,
+          message: "Invalid OTP",
+          data: null,
+        },
         { status: 400 }
       );
     }
 
-    // Mark OTP as used
+    // === MARK USED ===
     record.used = true;
     await record.save();
 
-    // Create / Find user
+    // === FIND OR CREATE USER ===
     let user = await User.findOne({ mobile });
     if (!user) {
       user = await User.create({ mobile });
     }
 
-    // Generate access & refresh tokens
+    // === TOKENS ===
     const accessToken = signAccessToken({ userId: user._id, mobile });
     const refreshToken = signRefreshToken({ userId: user._id, mobile });
 
-    const res = NextResponse.json({
-      success: true,
-      message: "OTP verified successfully",
-      user,
-      accessToken,
-    });
+    // === RESPONSE ===
+    const res = NextResponse.json(
+      {
+        success: true,
+        message: "OTP verified successfully",
+        data: {
+          user,
+          accessToken,
+        },
+      },
+      { status: 200 }
+    );
 
+    // === SET REFRESH COOKIE ===
     res.cookies.set("drivkaro_refresh", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/api/auth/refresh-token",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 
     return res;
   } catch (error) {
     console.error("Verify OTP Error:", error);
+
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      {
+        success: false,
+        message: "Server error",
+        data: null,
+      },
       { status: 500 }
     );
   }
