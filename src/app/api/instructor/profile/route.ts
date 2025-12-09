@@ -118,3 +118,45 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+
+export async function GET(
+  req: NextRequest
+) {
+  try {
+    await connectDB();
+
+    const instructorId = req.headers.get("x-instructor-id");
+
+    if (!instructorId) {
+      return NextResponse.json(
+        { success: false, message: "x-instructor-id header required" },
+        { status: 400 }
+      );
+    }
+
+    const instructor = await Instructor.findById(instructorId).select(
+      "-password -__v"
+    );
+
+    if (!instructor) {
+      return NextResponse.json(
+        { success: false, message: "Instructor not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Profile fetched successfully",
+      data: instructor,
+    });
+
+  } catch (err) {
+    console.error("GET profile error:", err);
+    return NextResponse.json(
+      { success: false, message: "Server error" },
+      { status: 500 }
+    );
+  }
+}
