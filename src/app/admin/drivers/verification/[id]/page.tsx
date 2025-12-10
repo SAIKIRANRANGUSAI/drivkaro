@@ -6,7 +6,6 @@ import {
   User as UserIcon,
   Phone,
   MapPin,
-  CheckCircle2,
   Ban,
   AlertCircle,
   Clock,
@@ -152,11 +151,9 @@ export default async function VerifyInstructorPage(props: any) {
             </h3>
 
             <div className="grid md:grid-cols-2 gap-8">
-  <Doc title="Driving License" url={instructor.dlImageUrl || ""} />
-  <Doc title="ID Proof" url={instructor.idProofUrl || ""} />
-</div>
-
-            
+              <Doc title="Driving License" url={instructor.dlImageUrl || ""} />
+              <Doc title="ID Proof" url={instructor.idProofUrl || ""} />
+            </div>
           </div>
         </div>
 
@@ -211,10 +208,11 @@ export default async function VerifyInstructorPage(props: any) {
                   {instructor.rejectionMessage}
                 </p>
                 <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-  <Clock size={12} />{" "}
-  Last update: {instructor.updatedAt ? new Date(instructor.updatedAt).toLocaleString() : "-"}
-</p>
-
+                  <Clock size={12} />{" "}
+                  Last update: {(instructor as any).updatedAt
+                    ? new Date((instructor as any).updatedAt).toLocaleString()
+                    : "-"}
+                </p>
               </div>
             )}
           </div>
