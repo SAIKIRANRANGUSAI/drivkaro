@@ -1,6 +1,7 @@
 // src/app/api/user/wallet/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { dbConnect } from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
+
 import WalletTransaction from "@/models/WalletTransaction";
 import User from "@/models/User";
 // import { getServerSession } from "next-auth";
@@ -8,7 +9,7 @@ import User from "@/models/User";
 
 export async function GET(req: NextRequest) {
   try {
-    await dbConnect();
+    await connectDB();
 
     // 👉 Replace with actual auth
     const userId = req.nextUrl.searchParams.get("userId");

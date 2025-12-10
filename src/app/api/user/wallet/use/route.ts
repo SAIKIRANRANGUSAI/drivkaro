@@ -1,7 +1,8 @@
 // src/app/api/user/wallet/use/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { dbConnect } from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
+
 import User from "@/models/User";
 import WalletTransaction from "@/models/WalletTransaction";
 
