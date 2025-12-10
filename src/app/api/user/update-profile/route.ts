@@ -1,6 +1,9 @@
+// src/app/api/user/update-profile/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
+import Referral from "@/models/Referral";
 import { verifyAccessToken } from "@/lib/jwt";
 import { JwtPayload } from "jsonwebtoken";
 
@@ -14,87 +17,107 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // === VALIDATE AUTH HEADER ===
+    // === AUTH ===
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Missing Authorization header",
-          data: null,
-        },
+        { success: false, message: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const parts = authHeader.split(" ");
-    if (parts.length !== 2 || parts[0] !== "Bearer") {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Authorization header format must be 'Bearer <token>'",
-          data: null,
-        },
-        { status: 401 }
-      );
-    }
+    const token = authHeader.split(" ")[1];
 
-    const token = parts[1];
-
-    // === VERIFY TOKEN ===
-    let rawPayload: any;
+    let decodedToken: any;
     try {
-      rawPayload = verifyAccessToken(token);
+      decodedToken = verifyAccessToken(token);
     } catch {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid or expired access token",
-          data: null,
-        },
+        { success: false, message: "Invalid or expired token" },
         { status: 401 }
       );
     }
 
-    const decoded = rawPayload as TokenPayload;
-    if (!decoded?.userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid token payload",
-          data: null,
-        },
-        { status: 401 }
-      );
-    }
+    const decoded = decodedToken as TokenPayload;
 
-    // === FIND USER ===
+    // === GET USER ===
     const user = await User.findById(decoded.userId);
     if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "User not found",
-          data: null,
-        },
+        { success: false, message: "User not found" },
         { status: 404 }
       );
     }
 
-    // === UPDATE FIELDS ===
-    if (body.fullName !== undefined) user.fullName = body.fullName;
-    if (body.email !== undefined) user.email = body.email;
-    if (body.gender !== undefined) user.gender = body.gender;
+    // === UPDATE PROFILE ===
+    if (typeof body.fullName === "string") user.fullName = body.fullName;
+    if (typeof body.email === "string") user.email = body.email;
+    if (typeof body.gender === "string") user.gender = body.gender;
 
+    // === APPLY REFERRAL CODE IF ENTERED ===
+    if (body.referralCode && body.referralCode.trim() !== "") {
+      
+      // Already applied?
+      if (user.referredBy) {
+        return NextResponse.json(
+          { success: false, message: "Referral already applied" },
+          { status: 400 }
+        );
+      }
+
+      // Find referrer
+      const referrer = await User.findOne({ referralCode: body.referralCode });
+
+      if (!referrer) {
+        return NextResponse.json(
+          { success: false, message: "Invalid referral code" },
+          { status: 400 }
+        );
+      }
+
+      // Self referral block
+      if (String(referrer._id) === String(user._id)) {
+        return NextResponse.json(
+          { success: false, message: "Cannot refer yourself" },
+          { status: 400 }
+        );
+      }
+
+      // Save mapping
+      user.referredBy = referrer._id;
+      user.usedReferralCode = body.referralCode;
+
+      // Create referral row
+      await Referral.create({
+        referrer: referrer._id,
+        referredUser: user._id,
+        bonusAmount: Number(process.env.REFERRAL_BONUS || 100),
+        status: "PENDING",
+        bonusCredited: false,
+      });
+    }
+
+    // === SAVE USER ===
     await user.save();
 
-    // === SUCCESS RESPONSE ===
+    // === RESPONSE ===
     return NextResponse.json(
       {
         success: true,
         message: "Profile updated successfully",
         data: {
-          user,
+          user: {
+            _id: user._id,
+            fullName: user.fullName,
+            mobile: user.mobile,
+            email: user.email,
+            gender: user.gender,
+            walletAmount: user.walletAmount,
+
+            // ⭐ FRONTEND NEEDS THESE:
+            myReferralCode: user.referralCode,
+            usedReferralCode: user.usedReferralCode || null,
+          },
         },
       },
       { status: 200 }
@@ -102,11 +125,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("Profile Update Error:", err);
     return NextResponse.json(
-      {
-        success: false,
-        message: "Server error",
-        data: null,
-      },
+      { success: false, message: "Server error", error: err.message },
       { status: 500 }
     );
   }
