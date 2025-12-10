@@ -211,9 +211,10 @@ export default async function VerifyInstructorPage(props: any) {
                   {instructor.rejectionMessage}
                 </p>
                 <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                  <Clock size={12} />{" "}
-                  Last update: {new Date(instructor.updatedAt).toLocaleString()}
-                </p>
+  <Clock size={12} />{" "}
+  Last update: {instructor.updatedAt ? new Date(instructor.updatedAt).toLocaleString() : "-"}
+</p>
+
               </div>
             )}
           </div>
