@@ -152,9 +152,11 @@ export default async function VerifyInstructorPage(props: any) {
             </h3>
 
             <div className="grid md:grid-cols-2 gap-8">
-              <Doc title="Driving License" url={instructor.dlImageUrl} />
-              <Doc title="ID Proof" url={instructor.idProofUrl} />
-            </div>
+  <Doc title="Driving License" url={instructor.dlImageUrl || ""} />
+  <Doc title="ID Proof" url={instructor.idProofUrl || ""} />
+</div>
+
+            
           </div>
         </div>
 
