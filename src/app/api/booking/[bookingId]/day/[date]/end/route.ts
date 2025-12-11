@@ -20,18 +20,12 @@ export async function POST(
 
     await connectDB();
 
-    // --------------------------
     // 1️⃣ Lookup booking
-    // --------------------------
     let booking = null;
-
     if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
       booking = await Booking.findById(bookingId);
     }
-
-    if (!booking) {
-      booking = await Booking.findOne({ bookingId });
-    }
+    if (!booking) booking = await Booking.findOne({ bookingId });
 
     if (!booking) {
       return NextResponse.json(
@@ -40,7 +34,6 @@ export async function POST(
       );
     }
 
-    // must be paid and ongoing
     if (!booking.paid || booking.status !== "ongoing") {
       return NextResponse.json(
         { success: false, message: "Booking not active" },
@@ -48,9 +41,7 @@ export async function POST(
       );
     }
 
-    // --------------------------
-    // 2️⃣ Get correct day
-    // --------------------------
+    // 2️⃣ Locate Day
     const dayEntry = booking.days.find((d: any) => d.date === date);
 
     if (!dayEntry) {
@@ -60,26 +51,22 @@ export async function POST(
       );
     }
 
-    // must have start first
-    if (!dayEntry.startOtp) {
+    // 3️⃣ Validate START session — based on your DB structure
+    if (dayEntry.status !== "started") {
       return NextResponse.json(
-        { success: false, message: "Start session not done yet" },
+        { success: false, message: "Start session not completed yet" },
         { status: 400 }
       );
     }
 
-    // must NOT be completed already
-    if (dayEntry.status === "completed") {
+    if (!dayEntry.startedAt) {
       return NextResponse.json(
-        { success: false, message: "Day already completed" },
+        { success: false, message: "Start OTP not verified" },
         { status: 400 }
       );
     }
 
-    // --------------------------
-    // 3️⃣ Validate OTP
-    // --------------------------
-
+    // 4️⃣ Validate End OTP
     if (dayEntry.endOtp !== otp) {
       return NextResponse.json(
         { success: false, message: "Invalid end OTP" },
@@ -87,9 +74,7 @@ export async function POST(
       );
     }
 
-    // --------------------------
-    // 4️⃣ Save BookingDay entry
-    // --------------------------
+    // 5️⃣ Update BookingDay database
     let bookingDay = await BookingDay.findOne({ booking: booking._id, date });
 
     if (!bookingDay) {
@@ -98,23 +83,17 @@ export async function POST(
 
     bookingDay.endVerifiedAt = new Date();
     bookingDay.status = "completed";
-
     await bookingDay.save();
 
-    // --------------------------
-    // 5️⃣ Update embedded array
-    // --------------------------
+    // 6️⃣ Update embedded dayEntry
     dayEntry.status = "completed";
-    dayEntry.endVerifiedAt = new Date();
+    dayEntry.completedAt = new Date();
 
     await booking.save();
 
-    // --------------------------
-    // 6️⃣ Auto complete booking if last day
-    // --------------------------
-    const allDone = booking.days.every((d: any) => d.status === "completed");
-
-    if (allDone) {
+    // 7️⃣ If all days completed → complete booking
+    const allCompleted = booking.days.every((d: any) => d.status === "completed");
+    if (allCompleted) {
       booking.status = "completed";
       booking.completedAt = new Date();
       await booking.save();

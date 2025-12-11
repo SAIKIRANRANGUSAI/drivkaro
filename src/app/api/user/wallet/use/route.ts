@@ -7,7 +7,7 @@ import User from "@/models/User";
 import WalletTransaction from "@/models/WalletTransaction";
 
 export async function POST(req: NextRequest) {
-  const session = await (await dbConnect()).startSession();
+  const session = await (await connectDB()).startSession();
 
   try {
     const { userId, bookingId, requestedAmount, usageType } = await req.json();

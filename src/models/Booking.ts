@@ -1,12 +1,12 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IBookingDay {
-  dayNo: number;                    // 1,2,3...
-  date: string;                     // yyyy-mm-dd
-  slot: string;                     // ex: "06:00 AM"
+  dayNo: number;
+  date: string;
+  slot: string;
 
-  startOtp: string;                 // always string
-  endOtp: string;                   // always string
+  startOtp: string;
+  endOtp: string;
 
   status: "pending" | "started" | "completed" | "missed";
 
@@ -37,7 +37,6 @@ export interface IBooking extends Document {
 
   carType: string;
   pricePerDay: number;
-
   slotTime: string;
 
   daysCount: number;
@@ -62,13 +61,17 @@ export interface IBooking extends Document {
 
   assignedInstructorId?: mongoose.Types.ObjectId | null;
 
-  status: "pending" | "instructor_assigned" | "ongoing" | "completed" | "cancelled";
+  status:
+    | "pending"
+    | "instructor_assigned"
+    | "ongoing"
+    | "completed"
+    | "cancelled";
 }
 
 const BookingDaySchema = new Schema<IBookingDay>(
   {
     dayNo: { type: Number, required: true },
-
     date: { type: String, required: true },
     slot: { type: String, required: true },
 
@@ -86,7 +89,6 @@ const BookingDaySchema = new Schema<IBookingDay>(
       ref: "Instructor",
       default: null,
     },
-
     instructorName: { type: String, default: null },
     instructorPhone: { type: String, default: null },
 
@@ -104,7 +106,7 @@ const BookingSchema = new Schema<IBooking>(
       type: String,
       required: true,
       unique: true,
-      index: true, // faster lookup
+      index: true,
     },
 
     pickupLocation: {
@@ -121,7 +123,6 @@ const BookingSchema = new Schema<IBooking>(
 
     carType: { type: String, required: true },
     pricePerDay: { type: Number, required: true },
-
     slotTime: { type: String, required: true },
 
     daysCount: { type: Number, required: true },
@@ -135,14 +136,18 @@ const BookingSchema = new Schema<IBooking>(
     gst: { type: Number, default: 0 },
     discount: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
-
     walletUsed: { type: Number, default: 0 },
+
     paid: { type: Boolean, default: false },
     paymentStatus: { type: String, default: null },
     paymentTxnRef: { type: String, default: null },
 
     bookedFor: { type: String, enum: ["self", "other"], default: "self" },
-    otherUserId: { type: Schema.Types.ObjectId, ref: "OtherUser", default: null },
+    otherUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "OtherUser",
+      default: null,
+    },
 
     assignedInstructorId: {
       type: Schema.Types.ObjectId,
@@ -152,7 +157,13 @@ const BookingSchema = new Schema<IBooking>(
 
     status: {
       type: String,
-      enum: ["pending", "instructor_assigned", "ongoing", "completed", "cancelled"],
+      enum: [
+        "pending",
+        "instructor_assigned",
+        "ongoing",
+        "completed",
+        "cancelled",
+      ],
       default: "pending",
     },
   },

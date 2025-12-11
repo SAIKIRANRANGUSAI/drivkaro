@@ -1,3 +1,5 @@
+// src/models/Instructor.ts
+
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IInstructor extends Document {
@@ -14,10 +16,12 @@ export interface IInstructor extends Document {
   idProofUrl?: string;
   status: "pending" | "approved" | "rejected" | "blocked";
 
-  // NEW FIELDS 👇
   rejectionMessage?: string;
   approvedAt?: Date;
   rejectedAt?: Date;
+
+  // ⭐ ADD WALLET IN INTERFACE
+  wallet: number;
 }
 
 const InstructorSchema = new Schema<IInstructor>(
@@ -41,10 +45,12 @@ const InstructorSchema = new Schema<IInstructor>(
       default: "pending",
     },
 
-    // NEW FIELDS 👇
     rejectionMessage: { type: String, default: "" },
     approvedAt: { type: Date },
     rejectedAt: { type: Date },
+
+    // ⭐ SCHEMA FIELD (required for TS + DB)
+    wallet: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

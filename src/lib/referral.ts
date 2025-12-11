@@ -1,10 +1,11 @@
 // src/lib/referral.ts
 import crypto from "crypto";
 import User from "@/models/User";
-import { dbConnect } from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
+
 
 export async function generateUniqueReferralCode(): Promise<string> {
-  await dbConnect();
+  await connectDB();
 
   // Try until unique (very fast in practice)
   while (true) {
