@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
-import Notification from "@/models/Notification";  // optional if storing
+import Notification from "@/models/Notification";  
 import { sendPushNotification } from "@/lib/sendNotification";
 
 export async function POST(req: NextRequest) {
@@ -16,22 +16,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // OPTIONAL: Save in DB
+    // OPTIONAL: Save notification to DB
     // await Notification.create({ title, message });
 
-    // Send to all users/instructors
-    await sendPushNotification({
-      title,
-      message,
-      topic: "all", // we can target specific users later
-    });
+    // ✅ FIXED — Correct function call
+    await sendPushNotification(title, message, "all");
 
     return NextResponse.json({
       success: true,
       message: "Notification sent successfully",
     });
+
   } catch (err) {
     console.error("NOTIFICATION ERROR:", err);
+
     return NextResponse.json(
       { success: false, message: "Server error" },
       { status: 500 }
