@@ -1,0 +1,21 @@
+import { NextRequest, NextResponse } from "next/server";
+import User from "@/models/User";
+import { sendPushNotification } from "@/lib/sendNotification";
+import connectDB from "@/lib/mongoose";
+
+export async function POST(req: NextRequest) {
+  try {
+    await connectDB();
+    const { title, message } = await req.json();
+
+    const users = await User.find({ fcmToken: { $ne: null } });
+
+    for (const user of users) {
+      sendPushNotification(user.fcmToken, title, message);
+    }
+
+    return NextResponse.json({ success: true, sent: users.length });
+  } catch (err) {
+    return NextResponse.json({ success: false, message: "Server error" });
+  }
+}

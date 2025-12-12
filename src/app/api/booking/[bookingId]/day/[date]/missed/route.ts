@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
+import User from "@/models/User"; // ⬅ added
+import { sendPushNotification } from "@/lib/sendNotification"; // ⬅ added
 
 export async function POST(
   req: NextRequest,
@@ -127,6 +129,42 @@ export async function POST(
 
     await booking.save();
 
+    // ----------------------------------------------------------------
+    // 🔔 SEND NOTIFICATIONS (ONLY THIS PART ADDED)
+    // ----------------------------------------------------------------
+
+    const user = await User.findById(booking.userId);
+    const instructor = await User.findById(booking.assignedInstructorId);
+
+    // Notify User
+    if (user?.fcmToken) {
+      await sendPushNotification(
+        user.fcmToken,
+        "Session Missed ❗",
+        `Your driving session on ${date} was marked as missed. A new day is added.`
+      );
+    }
+
+    // Notify Instructor
+    if (instructor?.fcmToken) {
+      await sendPushNotification(
+        instructor.fcmToken,
+        "User Missed Session 🚫",
+        `The session on ${date} for booking ${booking.bookingId} was missed.`
+      );
+    }
+
+    // Notify Admin
+    if (process.env.ADMIN_FCM_TOKEN) {
+      await sendPushNotification(
+        process.env.ADMIN_FCM_TOKEN,
+        "Missed Session Alert ⚠️",
+        `Booking ${booking.bookingId} missed on ${date}. Extra day added.`
+      );
+    }
+
+    // ----------------------------------------------------------------
+
     return NextResponse.json({
       success: true,
       message: "Day marked missed. Extra day added.",
@@ -136,7 +174,6 @@ export async function POST(
         totalDays: booking.days.length,
       },
     });
-
   } catch (err) {
     console.error("Missed day session error:", err);
     return NextResponse.json(

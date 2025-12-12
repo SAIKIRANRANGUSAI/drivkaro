@@ -403,6 +403,8 @@ import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import Pricing from "@/models/Pricing";
 import Coupon from "@/models/Coupon";
+import User from "@/models/User";
+import { sendPushNotification } from "@/lib/sendNotification";
 
 function generateOtp() {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -563,6 +565,30 @@ export async function POST(req: Request) {
       status: "pending",
     });
 
+    // ----------------------------------------------------
+    // 🔔 SEND NOTIFICATIONS (ONLY ADDED THIS)
+    // ----------------------------------------------------
+
+    const user = await User.findById(userId);
+
+    if (user?.fcmToken) {
+      await sendPushNotification(
+        user.fcmToken,
+        "Booking Created 🎉",
+        `Your booking ${booking.bookingId} has been created successfully.`
+      );
+    }
+
+    if (process.env.ADMIN_FCM_TOKEN) {
+      await sendPushNotification(
+        process.env.ADMIN_FCM_TOKEN,
+        "New Booking Alert 🚗",
+        `New booking created: ${booking.bookingId}`
+      );
+    }
+
+    // ----------------------------------------------------
+
     return NextResponse.json(
       {
         success: true,
@@ -579,50 +605,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-//
-// 📌 GET BOOKINGS LIST
-//
-export async function GET(req: Request) {
-  try {
-    await connectDB();
-
-    const userId = req.headers.get("x-user-id");
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, message: "Missing x-user-id header" },
-        { status: 400 }
-      );
-    }
-
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status") || undefined;
-
-    const query: any = { userId };
-    if (status) query.status = status;
-
-    const bookings = await Booking.find(query).sort({ createdAt: -1 });
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Bookings fetched successfully",
-        data: {
-          count: bookings.length,
-          bookings,
-        },
-      },
-      { status: 200 }
-    );
-  } catch (err) {
-    console.error("BOOKING GET ERROR:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 }
-    );
-  }
-}
-
-
-
-

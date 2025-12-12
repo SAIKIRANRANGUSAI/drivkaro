@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
+import User from "@/models/User"; // ⬅ added to fetch user + instructor tokens
+import { sendPushNotification } from "@/lib/sendNotification"; // ⬅ for notifications
 
 // 📌 Helper – get today (yyyy-mm-dd) in India timezone
 function getTodayDate() {
@@ -15,7 +17,6 @@ export async function POST(
     const { bookingId, date } = await context.params;
     const { otp } = await req.json();
 
-    // 🔍 Basic validation
     if (!bookingId || !date || !otp) {
       return NextResponse.json(
         { success: false, message: "bookingId, date & otp are required" },
@@ -25,20 +26,16 @@ export async function POST(
 
     await connectDB();
 
-    // 🔍 Find booking by _id or bookingId
     let booking: any = null;
 
-    // Try ObjectId
     if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
       booking = await Booking.findById(bookingId);
     }
 
-    // Else try bookingId (BK123456)
     if (!booking) {
       booking = await Booking.findOne({ bookingId });
     }
 
-    // No booking?
     if (!booking) {
       return NextResponse.json(
         { success: false, message: "Booking not found" },
@@ -46,7 +43,6 @@ export async function POST(
       );
     }
 
-    // 💰 Check payment status
     if (!booking.paid) {
       return NextResponse.json(
         { success: false, message: "Payment not completed" },
@@ -54,7 +50,6 @@ export async function POST(
       );
     }
 
-    // 👨‍🏫 Instructor check
     if (!booking.assignedInstructorId) {
       return NextResponse.json(
         { success: false, message: "Instructor not assigned" },
@@ -62,7 +57,6 @@ export async function POST(
       );
     }
 
-    // 📅 Find correct day entry
     const day = booking.days.find((d: any) => d.date === date);
     if (!day) {
       return NextResponse.json(
@@ -71,7 +65,6 @@ export async function POST(
       );
     }
 
-    // 🕒 Only allow today
     const today = getTodayDate();
     if (date !== today) {
       return NextResponse.json(
@@ -84,7 +77,6 @@ export async function POST(
       );
     }
 
-    // 🔐 OTP validation
     if (day.startOtp !== otp) {
       return NextResponse.json(
         { success: false, message: "Invalid OTP" },
@@ -92,7 +84,6 @@ export async function POST(
       );
     }
 
-    // 🚫 Cannot start twice
     if (day.status === "started") {
       return NextResponse.json(
         { success: false, message: "Session already started" },
@@ -100,7 +91,6 @@ export async function POST(
       );
     }
 
-    // 🚫 Cannot start if completed
     if (day.status === "completed") {
       return NextResponse.json(
         { success: false, message: "Session already completed" },
@@ -114,7 +104,43 @@ export async function POST(
 
     await booking.save();
 
-    // ✅ SUCCESS RESPONSE
+    // -----------------------------------------------------------
+    // 🔔 SEND NOTIFICATIONS (ONLY ADDED THIS)
+    // -----------------------------------------------------------
+
+    // Fetch User & Instructor tokens
+    const user = await User.findById(booking.userId);
+    const instructor = await User.findById(booking.assignedInstructorId);
+
+    // Notify User
+    if (user?.fcmToken) {
+      await sendPushNotification(
+        user.fcmToken,
+        "Session Started 🚗",
+        `Your driving session for ${booking.bookingId} has started.`
+      );
+    }
+
+    // Notify Instructor
+    if (instructor?.fcmToken) {
+      await sendPushNotification(
+        instructor.fcmToken,
+        "Training Started 👨‍🏫",
+        `Session for booking ${booking.bookingId} has been started.`
+      );
+    }
+
+    // Notify Admin
+    if (process.env.ADMIN_FCM_TOKEN) {
+      await sendPushNotification(
+        process.env.ADMIN_FCM_TOKEN,
+        "Session Started 🔥",
+        `Booking ${booking.bookingId} session started today.`
+      );
+    }
+
+    // -----------------------------------------------------------
+
     return NextResponse.json({
       success: true,
       message: "Day session started",

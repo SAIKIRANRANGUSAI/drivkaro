@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
+import User from "@/models/User";                           // ⬅ added
+import { sendPushNotification } from "@/lib/sendNotification"; // ⬅ added
 
 export async function POST(
   req: NextRequest,
@@ -98,6 +100,42 @@ export async function POST(
       booking.completedAt = new Date();
       await booking.save();
     }
+
+    // ------------------------------------------------------------------
+    // 🔔 SEND NOTIFICATIONS — ONLY THIS BLOCK ADDED
+    // ------------------------------------------------------------------
+
+    const user = await User.findById(booking.userId);
+    const instructor = await User.findById(booking.assignedInstructorId);
+
+    // Notify User
+    if (user?.fcmToken) {
+      await sendPushNotification(
+        user.fcmToken,
+        "Session Completed 🎉",
+        `Your driving session on ${date} is successfully completed.`
+      );
+    }
+
+    // Notify Instructor
+    if (instructor?.fcmToken) {
+      await sendPushNotification(
+        instructor.fcmToken,
+        "User Session Done ✔️",
+        `The session on ${date} for booking ${booking.bookingId} has been completed.`
+      );
+    }
+
+    // Notify Admin
+    if (process.env.ADMIN_FCM_TOKEN) {
+      await sendPushNotification(
+        process.env.ADMIN_FCM_TOKEN,
+        "Session Completed ✔️",
+        `Booking ${booking.bookingId} session completed for ${date}.`
+      );
+    }
+
+    // ------------------------------------------------------------------
 
     return NextResponse.json({
       success: true,
