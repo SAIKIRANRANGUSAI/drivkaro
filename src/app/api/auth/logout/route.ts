@@ -19,5 +19,9 @@ export async function POST() {
     secure: process.env.NODE_ENV === "production",
   });
 
+  // Optional: Add a delay to simulate processing time for loader on client-side
+  // (Client should handle the loader; server just responds)
+  await new Promise(resolve => setTimeout(resolve, 500));
+
   return res;
 }

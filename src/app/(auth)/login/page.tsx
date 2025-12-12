@@ -12,6 +12,50 @@ export default function LoginPage() {
   const [err, setErr] = useState("");
   const [isLoading, setIsLoading] = useState(false); // New state for loading
 
+  // ==============================
+  // SAVE ADMIN LOGIN LOG
+  // ==============================
+  const saveAdminLog = async () => {
+    try {
+      const ipRes = await fetch("https://api.ipify.org?format=json");
+      const ipData = await ipRes.json();
+      const ip = ipData.ip || "Unknown";
+
+      const userAgent = navigator.userAgent;
+
+      const browser = /Chrome/.test(userAgent)
+        ? "Chrome"
+        : /Firefox/.test(userAgent)
+        ? "Firefox"
+        : /Safari/.test(userAgent)
+        ? "Safari"
+        : /Edge/.test(userAgent)
+        ? "Edge"
+        : "Other";
+
+      const os = /Windows NT/.test(userAgent)
+        ? "Windows"
+        : /Mac OS X/.test(userAgent)
+        ? "macOS"
+        : /Android/.test(userAgent)
+        ? "Android"
+        : /iPhone|iPad|iPod/.test(userAgent)
+        ? "iOS"
+        : /Linux/.test(userAgent)
+        ? "Linux"
+        : "Other";
+
+      await fetch("/api/admin/settings/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ip, browser, os, time: new Date().toISOString() }),
+      });
+    } catch (error) {
+      console.error("Failed to save admin log:", error);
+      // Don't fail login on log error
+    }
+  };
+
   const handleLogin = async () => {
     setErr("");
     setIsLoading(true); // Start loading
@@ -29,6 +73,9 @@ export default function LoginPage() {
         setIsLoading(false); // Stop loading on error
         return;
       }
+
+      // Save login log on success
+      await saveAdminLog();
 
       // Login successful
       router.push("/admin");

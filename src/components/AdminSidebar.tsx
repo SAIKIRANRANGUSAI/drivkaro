@@ -18,6 +18,7 @@ import {
   ChevronRight,
   LogOut,
   Mail,
+  UserCircle,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 
@@ -43,39 +44,48 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
     <aside
       className={`
         fixed top-0 left-0 h-screen
-        bg-[#1A202C] text-gray-100 shadow-2xl z-40
+        bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-gray-100 shadow-2xl z-50
         flex flex-col overflow-hidden
-        transition-all duration-300
+        transition-all duration-500 ease-in-out
         ${isOpen ? "w-72" : "w-20"}
       `}
     >
-      {/* TOP */}
-      <div className="relative p-6 border-b border-gray-700/50 flex items-center justify-center">
+      {/* TOP HEADER */}
+      <div className="relative p-6 border-b border-gray-700/30 flex items-center justify-center">
         {isOpen ? (
-          <h1 className="font-extrabold text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-gray-50 to-amber-300">
-            DRIVKARO
-          </h1>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg flex items-center justify-center shadow-lg">
+              <span className="text-sm font-bold text-gray-900">DK</span>
+            </div>
+            <h1 className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-100 via-amber-200 to-gray-300">
+              DRIVKARO
+            </h1>
+          </div>
         ) : (
-          <span className="text-xl font-bold text-amber-300">DK</span>
+          <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg flex items-center justify-center shadow-lg">
+            <span className="text-sm font-bold text-gray-900">DK</span>
+          </div>
         )}
 
-        {/* COLLAPSE BTN */}
+        {/* COLLAPSE BUTTON */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 bg-[#2D3748] border border-gray-700 
-                     p-2 rounded-full shadow-lg hover:bg-[#4A5568] transition duration-200 text-gray-300"
+          className="absolute -right-3 top-1/2 -translate-y-1/2 bg-gray-700/50 border border-gray-600/50 
+                     p-2.5 rounded-full shadow-xl hover:bg-amber-500/20 hover:border-amber-400/50 transition-all duration-300 
+                     text-gray-300 hover:text-amber-300 flex items-center justify-center"
+          title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
           {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
         </button>
       </div>
 
-      {/* SCROLL AREA */}
+      {/* NAVIGATION SCROLL AREA */}
       <nav
         className="
-        flex-1 overflow-y-auto overflow-x-hidden
-        px-4 py-6 space-y-1
-        custom-scroll scroll-smooth
-      "
+          flex-1 overflow-y-auto overflow-x-hidden
+          px-3 py-6 space-y-2
+          scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800
+        "
       >
         <SidebarSection title="MAIN" isOpen={isOpen} />
         <SidebarItem icon={LayoutDashboard} title="Dashboard" link="/admin" isOpen={isOpen} />
@@ -101,20 +111,23 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
       </nav>
 
       {/* FOOTER */}
-      <div className="p-4 border-t border-gray-700/50 bg-[#151a24]">
+      <div className="p-4 border-t border-gray-700/30 bg-gray-800/50 backdrop-blur-sm">
         {isOpen ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
+          <div className="flex items-center justify-between space-x-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="relative flex-shrink-0">
                 <img
-                  src="https://ui-avatars.com/api/?name=Admin&background=FFB74D&color=1A202C"
-                  className="w-10 h-10 rounded-full border-2 border-amber-400"
+                  src="https://ui-avatars.com/api/?name=Admin&background=FFB74D&color=1A202C&size=40&bold=true"
+                  alt="Admin Profile"
+                  className="w-10 h-10 rounded-full border-2 border-amber-400/50 shadow-md"
                 />
-                <Mail size={12} className="absolute bottom-0 right-0 p-0.5 rounded-full bg-red-500 text-white" />
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                  <Mail size={10} className="text-white" />
+                </div>
               </div>
 
-              <div>
-                <p className="text-sm font-semibold text-gray-50">Super Admin</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-gray-100 truncate">Super Admin</p>
                 <p className="text-xs text-gray-400 truncate">admin@drivkaro.com</p>
               </div>
             </div>
@@ -122,13 +135,16 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
             <LogoutButton />
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-3">
             <div className="relative">
               <img
-                src="https://ui-avatars.com/api/?name=A&background=FFB74D&color=1A202C"
-                className="w-10 h-10 rounded-full border-2 border-amber-400"
+                src="https://ui-avatars.com/api/?name=A&background=FFB74D&color=1A202C&size=40&bold=true"
+                alt="Admin Profile"
+                className="w-10 h-10 rounded-full border-2 border-amber-400/50 shadow-md"
               />
-              <Mail size={12} className="absolute bottom-0 right-0 p-0.5 rounded-full bg-red-500 text-white" />
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                <Mail size={10} className="text-white" />
+              </div>
             </div>
 
             <LogoutButton />
@@ -151,36 +167,49 @@ function SidebarItem({ icon: Icon, title, link, isOpen }: SidebarItemProps) {
     <Link
       href={link}
       className={`
-        group relative flex items-center gap-3 py-3 rounded-lg transition-all duration-200
-        ${isOpen ? "px-3" : "justify-center"}
+        group relative flex items-center gap-4 py-3 px-3 rounded-xl transition-all duration-300 ease-out
+        overflow-hidden
         ${isActive
-          ? "bg-amber-500/10 text-amber-400 border-l-4 border-amber-500 font-semibold"
-          : "text-gray-400 hover:bg-gray-700/30 hover:text-gray-50"}
+          ? "bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-300 border border-amber-500/30 shadow-inner"
+          : "text-gray-400 hover:bg-gray-700/40 hover:text-gray-200 hover:border-gray-600/50 border border-transparent"
+        }
+        ${!isOpen ? "justify-center p-3" : ""}
       `}
     >
-      <Icon size={20} />
+      <div className={`p-2 rounded-lg transition-colors duration-300 flex-shrink-0 ${
+        isActive 
+          ? "bg-amber-500/10" 
+          : "group-hover:bg-amber-500/10 group-hover:text-amber-300"
+      }`}>
+        <Icon size={20} />
+      </div>
 
       {/* Title */}
       <span
         className={`
-          text-sm whitespace-nowrap transition-all duration-300
-          ${isOpen ? "opacity-100 translate-x-0" : "opacity-0 absolute left-full"}
+          text-sm font-medium whitespace-nowrap transition-all duration-500 ease-out
+          ${isOpen ? "opacity-100 translate-x-0 delay-150" : "opacity-0 -translate-x-2 absolute left-full scale-95"}
         `}
       >
         {title}
       </span>
 
-      {/* Tooltip */}
+      {/* Active Indicator */}
+      {isActive && (
+        <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-1 h-6 bg-amber-500 rounded-full shadow-lg" />
+      )}
+
+      {/* Tooltip for collapsed state */}
       {!isOpen && (
-        <span
+        <div
           className="
-            absolute left-full ml-4 px-3 py-1 bg-gray-800 text-gray-200 text-xs 
-            rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none
-            whitespace-nowrap z-50
+            absolute left-full ml-4 px-3 py-2 bg-gray-800/95 backdrop-blur-sm text-gray-100 text-xs rounded-xl shadow-2xl 
+            opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50
+            border border-gray-700/50 transition-all duration-300 scale-95 group-hover:scale-100
           "
         >
           {title}
-        </span>
+        </div>
       )}
     </Link>
   );
@@ -190,12 +219,15 @@ function SidebarSection({ title, isOpen }: SidebarSectionProps) {
   return (
     <div
       className={`
-        text-xs font-bold uppercase tracking-wider text-gray-500 
-        transition-all duration-300
-        ${isOpen ? "opacity-100 px-3 py-4" : "opacity-0 h-0 overflow-hidden"}
+        text-xs font-bold uppercase tracking-widest text-gray-500/70 
+        transition-all duration-500 ease-out mb-2
+        ${isOpen ? "opacity-100 translate-y-0 delay-200 px-1 py-3" : "opacity-0 translate-y-2 h-0 overflow-hidden"}
       `}
     >
-      {title}
+      <div className="flex items-center gap-2">
+        <div className="w-1 h-1 bg-gray-500/50 rounded-full" />
+        {title}
+      </div>
     </div>
   );
 }
@@ -204,12 +236,19 @@ function LogoutButton() {
   return (
     <button
       onClick={async () => {
-        await fetch("/api/admin/logout", { method: "POST" });
-        window.location.href = "/login";
+        'use client';
+        if (confirm("Are you sure you want to log out?")) {
+          await fetch("/api/admin/logout", { method: "POST" });
+          window.location.href = "/login";
+        }
       }}
-      className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-gray-700/50 transition duration-200"
+      className="group relative p-2.5 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 flex items-center justify-center shadow-sm hover:shadow-md"
+      title="Logout"
     >
-      <LogOut size={20} />
+      <LogOut size={18} className="group-hover:rotate-180 transition-transform duration-300" />
+      <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-gray-100 text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap z-50">
+        Logout
+      </span>
     </button>
   );
 }
