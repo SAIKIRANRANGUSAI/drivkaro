@@ -91,7 +91,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
 
         <SidebarSection title="BOOKINGS" isOpen={isOpen} />
         <SidebarItem icon={CalendarCheck} title="Bookings" link="/admin/bookings" isOpen={isOpen} />
-        <SidebarItem icon={MapPin} title="Locations" link="/admin/locations" isOpen={isOpen} />
+        {/* <SidebarItem icon={MapPin} title="Locations" link="/admin/locations" isOpen={isOpen} /> */}
 
         <SidebarSection title="SYSTEM" isOpen={isOpen} />
         <SidebarItem icon={TicketPercent} title="Coupons" link="/admin/coupons" isOpen={isOpen} />
