@@ -49,16 +49,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // === UPDATE PROFILE ===
+    // === UPDATE PROFILE FIELDS ===
     if (typeof body.fullName === "string") user.fullName = body.fullName;
     if (typeof body.email === "string") user.email = body.email;
     if (typeof body.gender === "string") user.gender = body.gender;
 
-    // === APPLY REFERRAL CODE IF ENTERED ===
-    if (body.referralCode && body.referralCode.trim() !== "") {
-      
+    // ⭐ FIX: ACCEPT usedReferralCode INSTEAD OF referralCode
+    const referralCodeToApply = body.usedReferralCode?.trim();
+
+    if (referralCodeToApply) {
       // Already applied?
-      if (user.referredBy) {
+      if (user.usedReferralCode) {
         return NextResponse.json(
           { success: false, message: "Referral already applied" },
           { status: 400 }
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Find referrer
-      const referrer = await User.findOne({ referralCode: body.referralCode });
+      const referrer = await User.findOne({ referralCode: referralCodeToApply });
 
       if (!referrer) {
         return NextResponse.json(
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
 
       // Save mapping
       user.referredBy = referrer._id;
-      user.usedReferralCode = body.referralCode;
+      user.usedReferralCode = referralCodeToApply;
 
       // Create referral row
       await Referral.create({
@@ -104,7 +105,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: "Profile updated successfully",
+        message: referralCodeToApply
+          ? "Referral applied & profile updated"
+          : "Profile updated successfully",
         data: {
           user: {
             _id: user._id,
@@ -113,8 +116,6 @@ export async function POST(req: NextRequest) {
             email: user.email,
             gender: user.gender,
             walletAmount: user.walletAmount,
-
-            // ⭐ FRONTEND NEEDS THESE:
             myReferralCode: user.referralCode,
             usedReferralCode: user.usedReferralCode || null,
           },
