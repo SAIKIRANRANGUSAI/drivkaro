@@ -24,22 +24,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✔ DIRECTLY UPDATE PAYMENT STATUS
+    // ✔ UPDATE PAYMENT STATUS ONLY
     booking.paymentStatus = "success";
     booking.paid = true;
-    booking.status = "completed"; // old logic you wanted
+    booking.status = "ongoing";       // <<< your new requirement
     booking.paymentTxnRef = "manual-complete";
 
     await booking.save();
 
     return NextResponse.json({
       success: true,
-      message: "Payment status updated to completed",
+      message: "Payment success & booking set to ongoing",
     });
+
   } catch (err) {
     console.error("Webhook Error:", err);
     return NextResponse.json(
-      { success: false, message: "Server Error" },
+      { success: false, message: "Server error" },
       { status: 500 }
     );
   }
