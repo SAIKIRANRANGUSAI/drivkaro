@@ -20,7 +20,7 @@ export default function NotificationsPage() {
     if (!title.trim() || !message.trim()) {
       Swal.fire({
         icon: "warning",
-        title: "Missing Fields",
+        title: "Missing Fields ⚠️",
         text: "Please enter both a title and message.",
         confirmButtonColor: "#6366F1",
       });
@@ -42,8 +42,9 @@ export default function NotificationsPage() {
         Swal.fire({
           icon: "success",
           title: "Notification Sent 🎉",
-          text: "Your push notification has been delivered to all users.",
+          text: "Your message has been delivered to all users.",
           confirmButtonColor: "#10B981",
+          timer: 1800,
         });
 
         setTitle("");
@@ -51,7 +52,7 @@ export default function NotificationsPage() {
       } else {
         Swal.fire({
           icon: "error",
-          title: "Failed",
+          title: "Failed ❌",
           text: data.message || "Could not send notification.",
           confirmButtonColor: "#EF4444",
         });
@@ -69,44 +70,49 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen p-8 bg-gradient-to-br from-gray-50 to-gray-200">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen p-6 sm:p-10 bg-gradient-to-br from-white to-gray-100">
 
-        {/* PAGE TITLE */}
-        <h1 className="text-4xl font-bold mb-6 text-gray-800">
-          🔔 Push Notifications
-        </h1>
+      <div className="max-w-3xl mx-auto space-y-6">
 
-        {/* NOTIFICATION FORM */}
-        <Card className="shadow-xl border border-gray-200 rounded-2xl">
+        {/* PAGE HEADER */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">
+            🔔 Push Notifications
+          </h1>
+        </div>
+
+        {/* NOTIFICATION CARD */}
+        <Card className="shadow-xl border border-gray-200 rounded-2xl backdrop-blur-sm bg-white/80">
           <CardHeader>
-            <CardTitle className="text-xl font-semibold">Send Notification</CardTitle>
+            <CardTitle className="text-xl font-semibold text-gray-800">
+              Send Broadcast Notification
+            </CardTitle>
             <p className="text-gray-500 text-sm">
-              Send instant push notifications to all users & instructors.
+              Instantly notify all users & instructors.
             </p>
           </CardHeader>
 
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-6">
 
-            {/* TITLE */}
+            {/* TITLE INPUT */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Notification Title</label>
+              <label className="text-sm font-medium text-gray-700">Title</label>
               <Input
                 placeholder="Enter notification title..."
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="bg-white shadow-sm focus:ring-indigo-500"
+                className="bg-white shadow-sm border-gray-300 focus:ring-indigo-500"
               />
             </div>
 
-            {/* MESSAGE */}
+            {/* MESSAGE INPUT */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Notification Message</label>
+              <label className="text-sm font-medium text-gray-700">Message</label>
               <Textarea
-                placeholder="Enter message to broadcast..."
+                placeholder="Write the message you want to broadcast..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="bg-white shadow-sm min-h-[120px] resize-none focus:ring-indigo-500"
+                className="bg-white shadow-sm min-h-[140px] resize-none border-gray-300 focus:ring-indigo-500"
               />
             </div>
 
@@ -114,10 +120,13 @@ export default function NotificationsPage() {
             <Button
               onClick={sendNotification}
               disabled={loading}
-              className="w-full py-6 text-lg bg-indigo-600 hover:bg-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg"
+              className="w-full py-4 text-lg bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all duration-200 shadow-md hover:shadow-lg rounded-xl"
             >
               {loading ? (
-                <Loader2 className="animate-spin h-6 w-6" />
+                <div className="flex items-center gap-2">
+                  <Loader2 className="animate-spin h-5 w-5" />
+                  Sending...
+                </div>
               ) : (
                 "Send Notification"
               )}
@@ -125,8 +134,8 @@ export default function NotificationsPage() {
 
           </CardContent>
         </Card>
-
       </div>
+
     </div>
   );
 }
