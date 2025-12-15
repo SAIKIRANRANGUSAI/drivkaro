@@ -71,16 +71,16 @@ export default function AdminHeader({ isOpen, setIsOpen }: AdminHeaderProps) {
           className="relative p-2 text-gray-600 hover:text-[#0C1F4B] hover:bg-gray-100 rounded-xl transition-all duration-200"
           aria-label="Notifications"
         >
-          <Bell size={20} />
+          {/* <Bell size={20} /> */}
           {/* Notification Badge */}
-          <motion.div
+          {/* <motion.div
             className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 500, damping: 15 }}
           >
             <span className="text-xs font-bold text-white">3</span>
-          </motion.div>
+          </motion.div> */}
         </motion.button>
 
         {/* Profile Dropdown */}
@@ -116,9 +116,9 @@ export default function AdminHeader({ isOpen, setIsOpen }: AdminHeaderProps) {
                 className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200/50 overflow-hidden"
               >
                 <div className="py-2">
-                  <Link href="/admin/profile" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <Link href="/admin/change-password" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                     <User size={18} />
-                    Profile
+                    change-password
                   </Link>
                   <Link href="/admin/settings" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                     <Settings size={18} />

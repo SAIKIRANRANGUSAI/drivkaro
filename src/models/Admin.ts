@@ -1,21 +1,31 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 
-export interface IAdmin extends Document {
-  email: string;
-  password: string;   // plain text
-  name: string;
-  role: "admin" | "superadmin";
-}
-
-const AdminSchema = new Schema<IAdmin>(
+const AdminSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true }, // direct password
-    name: { type: String, default: "" },
-    role: { type: String, enum: ["admin", "superadmin"], default: "admin" }
+    password: { type: String, required: true },
+    name: String,
+    role: String,
   },
   { timestamps: true }
 );
 
+/**
+ * ✅ CORRECT pre-save hook
+ */
+AdminSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+
+  this.password = await bcrypt.hash(this.password, 10);
+});
+
+/**
+ * ✅ compare password method
+ */
+AdminSchema.methods.comparePassword = function (password: string) {
+  return bcrypt.compare(password, this.password);
+};
+
 export default mongoose.models.Admin ||
-  mongoose.model<IAdmin>("Admin", AdminSchema);
+  mongoose.model("Admin", AdminSchema);
