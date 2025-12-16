@@ -4,7 +4,7 @@ import Otp from "@/models/Otp";
 import Instructor from "@/models/Instructor";
 import crypto from "crypto";
 
-// 🔹 utility: safe response object
+// 🔹 standard response (ALWAYS 200)
 function buildResponse(
   success: boolean,
   message: string,
@@ -17,27 +17,28 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
-    const { mobile } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const mobile = body?.mobile || "";
 
     // -----------------------------
-    // VALIDATION
+    // VALIDATION (NO STATUS CODES)
     // -----------------------------
     if (!mobile) {
       return NextResponse.json(
         buildResponse(false, "Mobile number is required"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
     if (!/^[6-9]\d{9}$/.test(mobile)) {
       return NextResponse.json(
         buildResponse(false, "Invalid mobile number"),
-        { status: 422 }
+        { status: 200 }
       );
     }
 
     // -----------------------------
-    // RATE LIMIT (1 OTP / minute)
+    // RATE LIMIT (OPTIONAL)
     // -----------------------------
     const existingOtp = await Otp.findOne({
       phone: mobile,
@@ -46,23 +47,23 @@ export async function POST(req: NextRequest) {
     }).sort({ createdAt: -1 });
 
     if (existingOtp) {
-      const remainingSeconds = Math.floor(
+      const remaining = Math.floor(
         (existingOtp.expiresAt.getTime() - Date.now()) / 1000
       );
 
-      if (remainingSeconds > 60) {
+      if (remaining > 60) {
         return NextResponse.json(
           buildResponse(
             false,
-            `Please wait ${remainingSeconds} seconds before requesting new OTP`
+            `Please wait ${remaining} seconds before requesting new OTP`
           ),
-          { status: 429 }
+          { status: 200 }
         );
       }
     }
 
     // -----------------------------
-    // GENERATE OTP
+    // GENERATE MANUAL OTP
     // -----------------------------
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
     await Otp.create({
       phone: mobile,
       otpHash,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 mins
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       used: false,
     });
 
@@ -88,31 +89,23 @@ export async function POST(req: NextRequest) {
     }
 
     // -----------------------------
-    // DEV LOG ONLY
-    // -----------------------------
-    if (process.env.NODE_ENV !== "production") {
-      console.log("🔐 OTP (dev only):", otp);
-    }
-
-    // -----------------------------
-    // RESPONSE (APP FRIENDLY)
+    // RESPONSE (MANUAL OTP FOR TESTING)
     // -----------------------------
     return NextResponse.json(
-      buildResponse(true, "OTP sent successfully", {
+      buildResponse(true, "OTP generated successfully (manual)", {
         mobile,
+        otp,            // ✅ MANUAL OTP SHOWN
         expiresIn: 300, // seconds
-        otp:
-          process.env.NODE_ENV === "production"
-            ? ""
-            : otp, // dev only
       }),
       { status: 200 }
     );
+
   } catch (err) {
     console.error("Send OTP error:", err);
+
     return NextResponse.json(
       buildResponse(false, "Server error"),
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
