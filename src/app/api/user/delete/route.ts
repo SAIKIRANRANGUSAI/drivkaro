@@ -12,7 +12,6 @@ export async function DELETE(req: NextRequest) {
   try {
     await connectDB();
 
-    // ================= AUTH HEADER =================
     const authHeader = req.headers.get("authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -26,7 +25,6 @@ export async function DELETE(req: NextRequest) {
 
     const token = authHeader.split(" ")[1];
 
-    // ================= TOKEN VERIFY =================
     let decoded: TokenPayload;
     try {
       decoded = verifyAccessToken(token) as TokenPayload;
@@ -48,7 +46,6 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    // ================= DELETE USER =================
     const deletedUser = await User.findByIdAndDelete(decoded.userId);
 
     if (!deletedUser) {
@@ -60,7 +57,6 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    // ================= SUCCESS =================
     return NextResponse.json({
       success: true,
       code: "ACCOUNT_DELETED",
