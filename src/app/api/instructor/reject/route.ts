@@ -1,21 +1,68 @@
-import dbConnect from "@/lib/mongoose";
+import { NextRequest, NextResponse } from "next/server";
+import connectDB from "@/lib/mongoose";
 import Instructor from "@/models/Instructor";
-import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+// 🔹 utility: standard response
+function buildResponse(
+  success: boolean,
+  message: string,
+  data: any = {}
+) {
+  return { success, message, data };
+}
+
+export async function POST(req: NextRequest) {
   try {
-    await dbConnect();
-    const body = await req.json();
+    await connectDB();
 
-    const { id, message } = body;
+    const { id, message } = await req.json();
 
-    await Instructor.findByIdAndUpdate(id, {
-      status: "rejected",
-      rejectionMessage: message || "",
-    });
+    // -----------------------------
+    // VALIDATION
+    // -----------------------------
+    if (!id) {
+      return NextResponse.json(
+        buildResponse(false, "Instructor id is required"),
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    return NextResponse.json({ error: true }, { status: 500 });
+    // -----------------------------
+    // UPDATE INSTRUCTOR
+    // -----------------------------
+    const instructor = await Instructor.findByIdAndUpdate(
+      id,
+      {
+        status: "rejected",
+        rejectionMessage: message || "",
+      },
+      { new: true }
+    );
+
+    if (!instructor) {
+      return NextResponse.json(
+        buildResponse(false, "Instructor not found"),
+        { status: 404 }
+      );
+    }
+
+    // -----------------------------
+    // RESPONSE (APP FRIENDLY)
+    // -----------------------------
+    return NextResponse.json(
+      buildResponse(true, "Instructor rejected successfully", {
+        id: instructor._id.toString(),
+        status: instructor.status,
+        rejectionMessage: instructor.rejectionMessage || "",
+      }),
+      { status: 200 }
+    );
+
+  } catch (err) {
+    console.error("Reject instructor error:", err);
+    return NextResponse.json(
+      buildResponse(false, "Server error"),
+      { status: 500 }
+    );
   }
 }

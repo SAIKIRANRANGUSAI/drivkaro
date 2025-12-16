@@ -1,10 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
 import Instructor from "@/models/Instructor";
 import cloudinary from "@/lib/cloudinary";
 
+// ---------------- UTILS ----------------
+function buildResponse(
+  success: boolean,
+  message: string,
+  data: any = {}
+) {
+  return { success, message, data };
+}
+
+// Convert null / undefined → ""
+function sanitize(obj: any) {
+  const clean: any = {};
+  Object.keys(obj || {}).forEach((key) => {
+    clean[key] =
+      obj[key] === null || obj[key] === undefined ? "" : obj[key];
+  });
+  return clean;
+}
+
 // ---------------- CLOUDINARY UPLOAD ----------------
-async function uploadToCloudinary(file: File, folder: string): Promise<string> {
+async function uploadToCloudinary(
+  file: File,
+  folder: string
+): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   return new Promise((resolve, reject) => {
@@ -12,16 +34,14 @@ async function uploadToCloudinary(file: File, folder: string): Promise<string> {
       { folder },
       (error, result) => {
         if (error) return reject(error);
-
-        // Save secure URL
         resolve(result?.secure_url || "");
       }
     );
-
     stream.end(buffer);
   });
 }
 
+// ================= POST: SUBMIT / UPDATE PROFILE =================
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
@@ -30,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     if (!instructorId) {
       return NextResponse.json(
-        { success: false, message: "x-instructor-id header required" },
+        buildResponse(false, "x-instructor-id header required"),
         { status: 400 }
       );
     }
@@ -38,7 +58,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
 
     // ---------------- VALIDATION ----------------
-    const required = [
+    const requiredFields = [
       "fullName",
       "gender",
       "dob",
@@ -48,10 +68,10 @@ export async function POST(req: NextRequest) {
       "idProofType",
     ];
 
-    for (const key of required) {
-      if (!formData.get(key)) {
+    for (const field of requiredFields) {
+      if (!formData.get(field)) {
         return NextResponse.json(
-          { success: false, message: `${key} is required` },
+          buildResponse(false, `${field} is required`),
           { status: 400 }
         );
       }
@@ -78,20 +98,15 @@ export async function POST(req: NextRequest) {
       {
         fullName: formData.get("fullName"),
         gender: formData.get("gender"),
-
-        // FIX: Convert dd/mm/yyyy to correct format
         dob: new Date(formData.get("dob") as string),
-
         city: formData.get("city"),
-        carTypes: (formData.get("carTypes") as string)?.split(",") || [],
-
+        carTypes:
+          (formData.get("carTypes") as string)?.split(",") || [],
         vehicleNumber: formData.get("vehicleNumber"),
         dlNumber: formData.get("dlNumber"),
-
-        ...(dlImageUrl && { dlImageUrl }),
         idProofType: formData.get("idProofType"),
+        ...(dlImageUrl && { dlImageUrl }),
         ...(idProofUrl && { idProofUrl }),
-
         status: "pending",
       },
       { new: true }
@@ -99,30 +114,41 @@ export async function POST(req: NextRequest) {
 
     if (!updated) {
       return NextResponse.json(
-        { success: false, message: "Instructor not found" },
+        buildResponse(false, "Instructor not found"),
         { status: 404 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Profile submitted for approval",
-      data: updated,
-    });
+    // ---------------- RESPONSE ----------------
+    return NextResponse.json(
+      buildResponse(true, "Profile submitted for approval", sanitize({
+        id: updated._id.toString(),
+        fullName: updated.fullName,
+        gender: updated.gender,
+        dob: updated.dob,
+        city: updated.city,
+        carTypes: updated.carTypes,
+        vehicleNumber: updated.vehicleNumber,
+        dlNumber: updated.dlNumber,
+        dlImageUrl: updated.dlImageUrl,
+        idProofType: updated.idProofType,
+        idProofUrl: updated.idProofUrl,
+        status: updated.status,
+      })),
+      { status: 200 }
+    );
 
   } catch (err) {
     console.error("Instructor profile update error:", err);
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      buildResponse(false, "Server error"),
       { status: 500 }
     );
   }
 }
 
-
-export async function GET(
-  req: NextRequest
-) {
+// ================= GET: FETCH PROFILE =================
+export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
@@ -130,7 +156,7 @@ export async function GET(
 
     if (!instructorId) {
       return NextResponse.json(
-        { success: false, message: "x-instructor-id header required" },
+        buildResponse(false, "x-instructor-id header required"),
         { status: 400 }
       );
     }
@@ -141,21 +167,33 @@ export async function GET(
 
     if (!instructor) {
       return NextResponse.json(
-        { success: false, message: "Instructor not found" },
+        buildResponse(false, "Instructor not found"),
         { status: 404 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Profile fetched successfully",
-      data: instructor,
-    });
+    return NextResponse.json(
+      buildResponse(true, "Profile fetched successfully", sanitize({
+        id: instructor._id.toString(),
+        fullName: instructor.fullName,
+        gender: instructor.gender,
+        dob: instructor.dob,
+        city: instructor.city,
+        carTypes: instructor.carTypes,
+        vehicleNumber: instructor.vehicleNumber,
+        dlNumber: instructor.dlNumber,
+        dlImageUrl: instructor.dlImageUrl,
+        idProofType: instructor.idProofType,
+        idProofUrl: instructor.idProofUrl,
+        status: instructor.status,
+      })),
+      { status: 200 }
+    );
 
   } catch (err) {
-    console.error("GET profile error:", err);
+    console.error("Get instructor profile error:", err);
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      buildResponse(false, "Server error"),
       { status: 500 }
     );
   }

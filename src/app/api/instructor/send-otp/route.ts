@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
 import Otp from "@/models/Otp";
 import Instructor from "@/models/Instructor";
 import crypto from "crypto";
+
+// 🔹 utility: safe response object
+function buildResponse(
+  success: boolean,
+  message: string,
+  data: any = {}
+) {
+  return { success, message, data };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,23 +19,26 @@ export async function POST(req: NextRequest) {
 
     const { mobile } = await req.json();
 
-    // 🔍 Validate input
+    // -----------------------------
+    // VALIDATION
+    // -----------------------------
     if (!mobile) {
       return NextResponse.json(
-        { success: false, message: "Mobile number is required" },
+        buildResponse(false, "Mobile number is required"),
         { status: 400 }
       );
     }
 
-    // 🔍 Validate format (10 digits)
     if (!/^[6-9]\d{9}$/.test(mobile)) {
       return NextResponse.json(
-        { success: false, message: "Invalid mobile number" },
-        { status: 400 }
+        buildResponse(false, "Invalid mobile number"),
+        { status: 422 }
       );
     }
 
-    // ❌ Prevent multiple OTP requests in < 1 minute
+    // -----------------------------
+    // RATE LIMIT (1 OTP / minute)
+    // -----------------------------
     const existingOtp = await Otp.findOne({
       phone: mobile,
       used: false,
@@ -34,27 +46,27 @@ export async function POST(req: NextRequest) {
     }).sort({ createdAt: -1 });
 
     if (existingOtp) {
-      const remaining =
-        Math.floor((existingOtp.expiresAt.getTime() - Date.now()) / 1000);
+      const remainingSeconds = Math.floor(
+        (existingOtp.expiresAt.getTime() - Date.now()) / 1000
+      );
 
-      if (remaining > 60) {
+      if (remainingSeconds > 60) {
         return NextResponse.json(
-          {
-            success: false,
-            message: `Please wait ${remaining} seconds before requesting new OTP`,
-          },
+          buildResponse(
+            false,
+            `Please wait ${remainingSeconds} seconds before requesting new OTP`
+          ),
           { status: 429 }
         );
       }
     }
 
-    // 🔢 Generate new OTP
+    // -----------------------------
+    // GENERATE OTP
+    // -----------------------------
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // 🔐 Hash OTP
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // 💾 Save OTP record
     await Otp.create({
       phone: mobile,
       otpHash,
@@ -62,7 +74,9 @@ export async function POST(req: NextRequest) {
       used: false,
     });
 
-    // 👨‍🏫 Create instructor record if not exists
+    // -----------------------------
+    // ENSURE INSTRUCTOR EXISTS
+    // -----------------------------
     let instructor = await Instructor.findOne({ mobile });
 
     if (!instructor) {
@@ -73,20 +87,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 📡 Log OTP only in development mode
+    // -----------------------------
+    // DEV LOG ONLY
+    // -----------------------------
     if (process.env.NODE_ENV !== "production") {
-      console.log("🔐 OTP (dev):", otp);
+      console.log("🔐 OTP (dev only):", otp);
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "OTP sent successfully",
-      otp: process.env.NODE_ENV === "production" ? undefined : otp,
-    });
+    // -----------------------------
+    // RESPONSE (APP FRIENDLY)
+    // -----------------------------
+    return NextResponse.json(
+      buildResponse(true, "OTP sent successfully", {
+        mobile,
+        expiresIn: 300, // seconds
+        otp:
+          process.env.NODE_ENV === "production"
+            ? ""
+            : otp, // dev only
+      }),
+      { status: 200 }
+    );
   } catch (err) {
     console.error("Send OTP error:", err);
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      buildResponse(false, "Server error"),
       { status: 500 }
     );
   }

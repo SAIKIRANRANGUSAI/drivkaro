@@ -1,53 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import Instructor from "@/models/Instructor";
 
+// 🔹 utility: standard response
+function buildResponse(
+  success: boolean,
+  message: string,
+  data: any = {}
+) {
+  return { success, message, data };
+}
+
+// 🔹 sanitize null → ""
+function sanitize(obj: any) {
+  const clean: any = {};
+  Object.keys(obj || {}).forEach((key) => {
+    clean[key] =
+      obj[key] === null || obj[key] === undefined ? "" : obj[key];
+  });
+  return clean;
+}
+
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ bookingId: string }> }
+  { params }: { params: { bookingId: string } }
 ) {
   try {
     await connectDB();
 
-    // 1️⃣ Unwrap params
-    const { bookingId } = await context.params;
+    const { bookingId } = params;
 
+    // -----------------------------
+    // VALIDATION
+    // -----------------------------
     if (!bookingId) {
       return NextResponse.json(
-        { success: false, message: "bookingId missing in URL" },
+        buildResponse(false, "bookingId missing in URL"),
         { status: 400 }
       );
     }
 
-    // 2️⃣ Get Instructor ID
     const instructorId = req.headers.get("x-instructor-id");
 
     if (!instructorId) {
       return NextResponse.json(
-        { success: false, message: "x-instructor-id header is required" },
+        buildResponse(false, "x-instructor-id header is required"),
         { status: 400 }
       );
     }
 
+    // -----------------------------
+    // INSTRUCTOR CHECK
+    // -----------------------------
     const instructor = await Instructor.findById(instructorId);
 
     if (!instructor) {
       return NextResponse.json(
-        { success: false, message: "Instructor not found" },
+        buildResponse(false, "Instructor not found"),
         { status: 404 }
       );
     }
 
     if (instructor.status !== "approved") {
       return NextResponse.json(
-        { success: false, message: "Instructor not approved by admin" },
+        buildResponse(false, "Instructor not approved by admin"),
         { status: 403 }
       );
     }
 
-    // 3️⃣ Get booking
-    let booking = null;
+    // -----------------------------
+    // FIND BOOKING
+    // -----------------------------
+    let booking: any = null;
 
     if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
       booking = await Booking.findById(bookingId);
@@ -59,69 +84,76 @@ export async function POST(
 
     if (!booking) {
       return NextResponse.json(
-        { success: false, message: "Booking not found" },
+        buildResponse(false, "Booking not found"),
         { status: 404 }
       );
     }
 
-    // 4️⃣ Rules
+    // -----------------------------
+    // BOOKING RULES
+    // -----------------------------
     if (!booking.paid) {
       return NextResponse.json(
-        { success: false, message: "Payment not completed" },
+        buildResponse(false, "Payment not completed"),
         { status: 400 }
       );
     }
 
-    if (booking.status === "cancelled") {
+    if (["cancelled", "completed"].includes(booking.status)) {
       return NextResponse.json(
-        { success: false, message: "Booking already cancelled" },
-        { status: 400 }
-      );
-    }
-
-    if (booking.status === "completed") {
-      return NextResponse.json(
-        { success: false, message: "Booking already completed" },
+        buildResponse(
+          false,
+          `Booking already ${booking.status}`
+        ),
         { status: 400 }
       );
     }
 
     if (booking.assignedInstructorId) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Instructor already assigned",
-        },
-        { status: 400 }
+        buildResponse(false, "Instructor already assigned"),
+        { status: 409 }
       );
     }
 
-    // 5️⃣ Assign instructor
+    // -----------------------------
+    // ASSIGN INSTRUCTOR
+    // -----------------------------
     booking.assignedInstructorId = instructor._id;
     booking.assignedGender = instructor.gender;
     booking.status = "ongoing";
     booking.instructorAcceptedAt = new Date();
 
-    // 6️⃣ Fix: Add type for day
-    booking.days = booking.days.map((day: any) => ({
+    // Assign instructor per day
+    booking.days = (booking.days || []).map((day: any) => ({
       ...day,
       instructorId: instructor._id,
-      instructorName: instructor.fullName,
-      instructorPhone: instructor.mobile,
+      instructorName: instructor.fullName || "",
+      instructorPhone: instructor.mobile || "",
     }));
 
-    // 7️⃣ Save
     await booking.save();
 
-    return NextResponse.json({
-      success: true,
-      message: "Booking accepted successfully",
-      data: booking,
-    });
+    // -----------------------------
+    // RESPONSE
+    // -----------------------------
+    return NextResponse.json(
+      buildResponse(true, "Booking accepted successfully", sanitize({
+        bookingId: booking.bookingId || booking._id.toString(),
+        status: booking.status,
+        instructor: {
+          id: instructor._id.toString(),
+          name: instructor.fullName || "",
+          mobile: instructor.mobile || "",
+        },
+      })),
+      { status: 200 }
+    );
+
   } catch (err: any) {
     console.error("Instructor accept booking error:", err);
     return NextResponse.json(
-      { success: false, message: err.message || "Internal Server Error" },
+      buildResponse(false, err.message || "Internal Server Error"),
       { status: 500 }
     );
   }

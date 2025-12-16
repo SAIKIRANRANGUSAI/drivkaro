@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongoose";
+import connectDB from "@/lib/mongoose";
 import Otp from "@/models/Otp";
 import Instructor from "@/models/Instructor";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+
+// 🔹 utility: standard response
+function buildResponse(
+  success: boolean,
+  message: string,
+  data: any = {}
+) {
+  return { success, message, data };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,31 +20,33 @@ export async function POST(req: NextRequest) {
 
     const { mobile, otp } = await req.json();
 
-    // ---------------- VALIDATIONS ----------------
-
+    // -----------------------------
+    // VALIDATIONS
+    // -----------------------------
     if (!mobile || !otp) {
       return NextResponse.json(
-        { success: false, message: "mobile and otp are required" },
+        buildResponse(false, "mobile and otp are required"),
         { status: 400 }
       );
     }
 
     if (!/^[6-9]\d{9}$/.test(mobile)) {
       return NextResponse.json(
-        { success: false, message: "Invalid mobile number" },
-        { status: 400 }
+        buildResponse(false, "Invalid mobile number"),
+        { status: 422 }
       );
     }
 
     if (!/^\d{6}$/.test(otp)) {
       return NextResponse.json(
-        { success: false, message: "Invalid OTP format" },
-        { status: 400 }
+        buildResponse(false, "Invalid OTP format"),
+        { status: 422 }
       );
     }
 
-    // ---------------- FIND OTP ----------------
-
+    // -----------------------------
+    // FIND OTP
+    // -----------------------------
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
     const record = await Otp.findOne({
@@ -47,17 +58,20 @@ export async function POST(req: NextRequest) {
 
     if (!record) {
       return NextResponse.json(
-        { success: false, message: "Invalid or expired OTP" },
+        buildResponse(false, "Invalid or expired OTP"),
         { status: 400 }
       );
     }
 
-    // ---------------- MARK USED ----------------
+    // -----------------------------
+    // MARK OTP AS USED
+    // -----------------------------
     record.used = true;
     await record.save();
 
-    // ---------------- FIND INSTRUCTOR ----------------
-
+    // -----------------------------
+    // FIND / CREATE INSTRUCTOR
+    // -----------------------------
     let instructor = await Instructor.findOne({ mobile });
 
     if (!instructor) {
@@ -68,35 +82,41 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ---------------- GENERATE JWT ----------------
-
+    // -----------------------------
+    // GENERATE JWT
+    // -----------------------------
     const tokenPayload = {
       id: instructor._id.toString(),
       mobile: instructor.mobile,
       role: "instructor",
     };
 
-    const accessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET!, {
-      expiresIn: "7d",
-    });
+    const accessToken = jwt.sign(
+      tokenPayload,
+      process.env.JWT_SECRET!,
+      { expiresIn: "7d" }
+    );
 
-    // ---------------- RESPONSE ----------------
+    // -----------------------------
+    // RESPONSE (APP FRIENDLY)
+    // -----------------------------
+    return NextResponse.json(
+      buildResponse(true, "OTP verified successfully", {
+        instructor: {
+          id: instructor._id.toString(),
+          fullName: instructor.fullName || "",
+          mobile: instructor.mobile,
+          status: instructor.status,
+        },
+        accessToken,
+      }),
+      { status: 200 }
+    );
 
-    return NextResponse.json({
-      success: true,
-      message: "OTP verified successfully",
-      instructor: {
-        id: instructor._id,
-        fullName: instructor.fullName,
-        mobile: instructor.mobile,
-        status: instructor.status,
-      },
-      accessToken,
-    });
   } catch (err) {
     console.error("Verify OTP error:", err);
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      buildResponse(false, "Server error"),
       { status: 500 }
     );
   }
