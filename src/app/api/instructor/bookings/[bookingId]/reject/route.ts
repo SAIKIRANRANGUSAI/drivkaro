@@ -24,12 +24,13 @@ function sanitize(obj: any) {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { bookingId: string } }
+  context: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     await connectDB();
 
-    const { bookingId } = params;
+    // ✅ FIX: unwrap params correctly (Next.js 16)
+    const { bookingId } = await context.params;
 
     // -----------------------------
     // VALIDATION
@@ -115,10 +116,7 @@ export async function POST(
 
     if (["cancelled", "completed"].includes(booking.status)) {
       return NextResponse.json(
-        buildResponse(
-          false,
-          `Booking already ${booking.status}`
-        ),
+        buildResponse(false, `Booking already ${booking.status}`),
         { status: 400 }
       );
     }
@@ -158,11 +156,15 @@ export async function POST(
     // RESPONSE
     // -----------------------------
     return NextResponse.json(
-      buildResponse(true, "Booking rejected successfully", sanitize({
-        bookingId: booking.bookingId || booking._id.toString(),
-        status: booking.status,
-        reason,
-      })),
+      buildResponse(
+        true,
+        "Booking rejected successfully",
+        sanitize({
+          bookingId: booking.bookingId || booking._id.toString(),
+          status: booking.status,
+          reason,
+        })
+      ),
       { status: 200 }
     );
 
