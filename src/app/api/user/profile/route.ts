@@ -14,92 +14,79 @@ export async function GET(req: NextRequest) {
 
     // === EXTRACT TOKEN FROM HEADER ===
     const authHeader = req.headers.get("authorization");
+
     if (!authHeader) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Missing Authorization header",
-          data: null,
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "AUTH_HEADER_MISSING",
+        message: "Missing Authorization header",
+        data: null,
+      });
     }
 
     const parts = authHeader.split(" ");
     if (parts.length !== 2 || parts[0] !== "Bearer") {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Authorization header format must be 'Bearer <token>'",
-          data: null,
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "AUTH_HEADER_INVALID",
+        message: "Authorization header must be 'Bearer <token>'",
+        data: null,
+      });
     }
 
     const token = parts[1];
 
     // === VERIFY TOKEN ===
-    let rawPayload: any;
+    let decoded: TokenPayload;
     try {
-      rawPayload = verifyAccessToken(token);
+      decoded = verifyAccessToken(token) as TokenPayload;
     } catch {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid or expired access token",
-          data: null,
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "TOKEN_EXPIRED",
+        message: "Invalid or expired access token",
+        data: null,
+      });
     }
 
-    const decoded = rawPayload as TokenPayload;
     if (!decoded?.userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid token payload",
-          data: null,
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "TOKEN_PAYLOAD_INVALID",
+        message: "Invalid token payload",
+        data: null,
+      });
     }
 
     // === FIND USER ===
     const user = await User.findById(decoded.userId).select("-__v");
+
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "User not found",
-          data: null,
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "User not found",
+        data: null,
+      });
     }
 
     // === SUCCESS RESPONSE ===
-    return NextResponse.json(
-      {
-        success: true,
-        message: "User fetched successfully",
-        data: {
-          user,
-        },
+    return NextResponse.json({
+      success: true,
+      code: "USER_FETCHED",
+      message: "User fetched successfully",
+      data: {
+        user,
       },
-      { status: 200 }
-    );
-  } catch (err: any) {
+    });
+  } catch (err) {
     console.error("Get User Error:", err);
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Server error",
-        data: null,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Server error",
+      data: null,
+    });
   }
 }

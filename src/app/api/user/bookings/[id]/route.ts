@@ -3,7 +3,7 @@ import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 
 //
-// GET BOOKING DETAILS
+// ================= GET BOOKING DETAILS =================
 //
 export async function GET(
   request: NextRequest,
@@ -12,24 +12,28 @@ export async function GET(
   try {
     await connectDB();
 
-    const { id } = await context.params; // 👈 FIXED
+    const { id } = await context.params;
 
     if (!id) {
-      return NextResponse.json(
-        { success: false, message: "Booking ID missing", data: null },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "BOOKING_ID_MISSING",
+        message: "Booking ID missing",
+        data: null,
+      });
     }
 
     const userId = request.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized", data: null },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        data: null,
+      });
     }
 
-    let booking = null;
+    let booking: any = null;
 
     if (/^[0-9a-fA-F]{24}$/.test(id)) {
       booking = await Booking.findById(id);
@@ -40,21 +44,24 @@ export async function GET(
     }
 
     if (!booking) {
-      return NextResponse.json(
-        { success: false, message: "Booking not found", data: null },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "BOOKING_NOT_FOUND",
+        message: "Booking not found",
+        data: null,
+      });
     }
 
     if (booking.userId.toString() !== userId) {
-      return NextResponse.json(
-        { success: false, message: "Forbidden", data: null },
-        { status: 403 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "FORBIDDEN",
+        message: "Access denied",
+        data: null,
+      });
     }
 
     const today = new Date().toISOString().split("T")[0];
-
     const todayDay = booking.days.find((d: any) => d.date === today);
 
     const otp = todayDay
@@ -67,25 +74,29 @@ export async function GET(
         }
       : null;
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Booking fetched successfully",
-        data: { booking, todayOtp: otp },
+    return NextResponse.json({
+      success: true,
+      code: "BOOKING_FETCHED",
+      message: "Booking fetched successfully",
+      data: {
+        booking,
+        todayOtp: otp,
       },
-      { status: 200 }
-    );
+    });
   } catch (err) {
     console.error("GET BOOKING ERROR:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error", data: null },
-      { status: 500 }
-    );
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Server error",
+      data: null,
+    });
   }
 }
 
 //
-// CANCEL BOOKING
+// ================= CANCEL BOOKING =================
 //
 export async function DELETE(
   request: NextRequest,
@@ -94,24 +105,28 @@ export async function DELETE(
   try {
     await connectDB();
 
-    const { id } = await context.params; // 👈 FIXED
+    const { id } = await context.params;
 
     if (!id) {
-      return NextResponse.json(
-        { success: false, message: "Booking ID missing", data: null },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "BOOKING_ID_MISSING",
+        message: "Booking ID missing",
+        data: null,
+      });
     }
 
     const userId = request.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized", data: null },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        data: null,
+      });
     }
 
-    let booking = null;
+    let booking: any = null;
 
     if (/^[0-9a-fA-F]{24}$/.test(id)) {
       booking = await Booking.findById(id);
@@ -122,31 +137,40 @@ export async function DELETE(
     }
 
     if (!booking) {
-      return NextResponse.json(
-        { success: false, message: "Booking not found", data: null },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "BOOKING_NOT_FOUND",
+        message: "Booking not found",
+        data: null,
+      });
     }
 
     if (booking.userId.toString() !== userId) {
-      return NextResponse.json(
-        { success: false, message: "Forbidden", data: null },
-        { status: 403 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "FORBIDDEN",
+        message: "Access denied",
+        data: null,
+      });
     }
 
     booking.status = "cancelled";
     await booking.save();
 
-    return NextResponse.json(
-      { success: true, message: "Booking cancelled successfully", data: null },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      code: "BOOKING_CANCELLED",
+      message: "Booking cancelled successfully",
+      data: null,
+    });
   } catch (err) {
     console.error("DELETE BOOKING ERROR:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error", data: null },
-      { status: 500 }
-    );
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Server error",
+      data: null,
+    });
   }
 }

@@ -1,4 +1,5 @@
 // src/app/api/user/wallet/use/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import connectDB from "@/lib/mongoose";
@@ -13,43 +14,58 @@ export async function POST(req: NextRequest) {
     const { userId, bookingId, requestedAmount, usageType } = await req.json();
     // usageType: "BOOKING_PAYMENT" | "TIP_PAYMENT"
 
+    // ================= VALIDATION =================
     if (!userId || !bookingId || !requestedAmount || requestedAmount <= 0) {
-      return NextResponse.json(
-        { message: "Invalid request" },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "INVALID_REQUEST",
+        message: "Invalid request parameters",
+        data: null,
+      });
     }
 
     if (!["BOOKING_PAYMENT", "TIP_PAYMENT"].includes(usageType)) {
-      return NextResponse.json(
-        { message: "Invalid usage type" },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "INVALID_USAGE_TYPE",
+        message: "Invalid usage type",
+        data: null,
+      });
     }
 
     session.startTransaction();
 
+    // ================= GET USER =================
     const user = await User.findById(
       new mongoose.Types.ObjectId(userId)
     ).session(session);
 
     if (!user) {
       await session.abortTransaction();
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      return NextResponse.json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "User not found",
+        data: null,
+      });
     }
 
-    const current = user.walletAmount || 0;
-    if (current <= 0) {
+    const currentBalance = user.walletAmount || 0;
+
+    if (currentBalance <= 0) {
       await session.abortTransaction();
-      return NextResponse.json(
-        { message: "Insufficient wallet balance" },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "INSUFFICIENT_BALANCE",
+        message: "Insufficient wallet balance",
+        data: null,
+      });
     }
 
-    const amountToUse = Math.min(current, requestedAmount);
+    // ================= WALLET DEDUCTION =================
+    const amountToUse = Math.min(currentBalance, requestedAmount);
 
-    user.walletAmount = current - amountToUse;
+    user.walletAmount = currentBalance - amountToUse;
     await user.save({ session });
 
     await WalletTransaction.create(
@@ -70,18 +86,28 @@ export async function POST(req: NextRequest) {
 
     await session.commitTransaction();
 
+    // ================= SUCCESS =================
     return NextResponse.json({
       success: true,
-      usedAmount: amountToUse,
-      remainingWallet: user.walletAmount,
+      code: "WALLET_USED",
+      message: "Wallet amount used successfully",
+      data: {
+        usedAmount: amountToUse,
+        remainingWallet: user.walletAmount,
+        usageType,
+        bookingId,
+      },
     });
   } catch (error: any) {
     console.error("Wallet use error:", error);
     await session.abortTransaction();
-    return NextResponse.json(
-      { message: "Server error", error: error.message },
-      { status: 500 }
-    );
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Something went wrong",
+      data: null,
+    });
   } finally {
     session.endSession();
   }

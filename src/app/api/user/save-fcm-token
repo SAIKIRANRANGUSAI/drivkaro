@@ -5,16 +5,50 @@ import connectDB from "@/lib/mongoose";
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
+
     const { userId, fcmToken } = await req.json();
 
+    // ================= VALIDATION =================
     if (!userId || !fcmToken) {
-      return NextResponse.json({ success: false, message: "Missing data" });
+      return NextResponse.json({
+        success: false,
+        code: "MISSING_DATA",
+        message: "userId and fcmToken are required",
+        data: null,
+      });
     }
 
-    await User.findByIdAndUpdate(userId, { fcmToken });
+    // ================= UPDATE =================
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { fcmToken },
+      { new: true }
+    );
 
-    return NextResponse.json({ success: true, message: "Token saved" });
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "User not found",
+        data: null,
+      });
+    }
+
+    // ================= SUCCESS =================
+    return NextResponse.json({
+      success: true,
+      code: "FCM_TOKEN_SAVED",
+      message: "FCM token saved successfully",
+      data: null,
+    });
   } catch (err) {
-    return NextResponse.json({ success: false, message: "Server error" });
+    console.error("FCM TOKEN SAVE ERROR:", err);
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Server error",
+      data: null,
+    });
   }
 }

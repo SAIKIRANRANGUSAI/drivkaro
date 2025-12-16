@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/mongoose";
 import OtherUser from "@/models/OtherUser";
 
 //
-// GET
+// ================= GET OTHER USER =================
 //
 export async function GET(
   req: NextRequest,
@@ -14,14 +14,12 @@ export async function GET(
 
     const userId = req.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Missing x-user-id header",
-          data: null,
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "USER_ID_MISSING",
+        message: "Missing x-user-id header",
+        data: null,
+      });
     }
 
     const { id } = await context.params;
@@ -29,34 +27,34 @@ export async function GET(
     const other = await OtherUser.findById(id);
 
     if (!other || other.ownerUserId.toString() !== userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Not found",
-          data: null,
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "OTHER_USER_NOT_FOUND",
+        message: "Other user not found",
+        data: null,
+      });
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Fetched successfully",
-        data: { other },
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      code: "OTHER_USER_FETCHED",
+      message: "Fetched successfully",
+      data: { other },
+    });
   } catch (err) {
-    return NextResponse.json(
-      { success: false, message: "Server error", data: null },
-      { status: 500 }
-    );
+    console.error("OTHER USER GET ERROR:", err);
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Server error",
+      data: null,
+    });
   }
 }
 
 //
-// PUT
+// ================= UPDATE OTHER USER =================
 //
 export async function PUT(
   req: NextRequest,
@@ -67,14 +65,12 @@ export async function PUT(
 
     const userId = req.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Missing x-user-id header",
-          data: null,
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "USER_ID_MISSING",
+        message: "Missing x-user-id header",
+        data: null,
+      });
     }
 
     const { id } = await context.params;
@@ -87,35 +83,34 @@ export async function PUT(
     );
 
     if (!other) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Not found",
-          data: null,
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "OTHER_USER_NOT_FOUND",
+        message: "Other user not found",
+        data: null,
+      });
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Updated successfully",
-        data: { other },
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      code: "OTHER_USER_UPDATED",
+      message: "Updated successfully",
+      data: { other },
+    });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { success: false, message: "Server error", data: null },
-      { status: 500 }
-    );
+    console.error("OTHER USER UPDATE ERROR:", err);
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Server error",
+      data: null,
+    });
   }
 }
 
 //
-// DELETE
+// ================= DELETE OTHER USER =================
 //
 export async function DELETE(
   req: NextRequest,
@@ -126,14 +121,12 @@ export async function DELETE(
 
     const userId = req.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Missing x-user-id header",
-          data: null,
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "USER_ID_MISSING",
+        message: "Missing x-user-id header",
+        data: null,
+      });
     }
 
     const { id } = await context.params;
@@ -144,29 +137,28 @@ export async function DELETE(
     });
 
     if (!other) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Not found",
-          data: null,
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "OTHER_USER_NOT_FOUND",
+        message: "Other user not found",
+        data: null,
+      });
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Deleted successfully",
-        data: null,
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      code: "OTHER_USER_DELETED",
+      message: "Deleted successfully",
+      data: null,
+    });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { success: false, message: "Server error", data: null },
-      { status: 500 }
-    );
+    console.error("OTHER USER DELETE ERROR:", err);
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Server error",
+      data: null,
+    });
   }
 }

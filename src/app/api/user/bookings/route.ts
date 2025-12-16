@@ -418,51 +418,66 @@ export async function POST(req: Request) {
     await connectDB();
     const body = await req.json();
 
-    // ### HEADER VALIDATION ###
+    // ================= HEADER VALIDATION =================
     const userId = req.headers.get("x-user-id");
     if (!userId) {
-      return NextResponse.json(
-        { success: false, message: "Missing x-user-id header" },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "USER_ID_MISSING",
+        message: "Missing x-user-id header",
+        data: null,
+      });
     }
 
-    // ### REQUIRED FIELDS ###
-    const required = ["pickupLocation", "startDate", "endDate", "carType", "slotTime"];
+    // ================= REQUIRED FIELDS =================
+    const required = [
+      "pickupLocation",
+      "startDate",
+      "endDate",
+      "carType",
+      "slotTime",
+    ];
+
     for (const field of required) {
       if (!body[field]) {
-        return NextResponse.json(
-          { success: false, message: `${field} is required` },
-          { status: 400 }
-        );
+        return NextResponse.json({
+          success: false,
+          code: "FIELD_MISSING",
+          message: `${field} is required`,
+          data: null,
+        });
       }
     }
 
-    // ### PICKUP VALIDATION ###
+    // ================= PICKUP VALIDATION =================
     const pickup = body.pickupLocation;
     if (!pickup?.name || pickup.lat == null || pickup.lng == null) {
-      return NextResponse.json(
-        { success: false, message: "pickupLocation must have name, lat, lng" },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "INVALID_PICKUP_LOCATION",
+        message: "pickupLocation must have name, lat, lng",
+        data: null,
+      });
     }
 
     // AUTO FILL DROP LOCATION
     const dropLocation = body.dropLocation || pickup;
 
-    // ### PRICING ###
+    // ================= PRICING =================
     const pricing = await Pricing.findOne({ carType: body.carType });
     if (!pricing) {
-      return NextResponse.json(
-        { success: false, message: "Pricing not found for this car type" },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: false,
+        code: "PRICING_NOT_FOUND",
+        message: "Pricing not found for this car type",
+        data: null,
+      });
     }
 
     const pricePerDay = pricing.pricePerDay;
     const gstPercent = pricing.gstPercent || 18;
 
-    // ### DAYS GENERATION ###
+    // ================= DAYS GENERATION =================
     const days: any[] = [];
     const start = new Date(body.startDate);
     const end = new Date(body.endDate);
@@ -486,12 +501,12 @@ export async function POST(req: Request) {
 
     const daysCount = days.length;
 
-    // ### AMOUNT ###
+    // ================= AMOUNT =================
     const amount = pricePerDay * daysCount;
     const gst = Math.round((amount * gstPercent) / 100);
     let finalAmount = amount + gst;
 
-    // ### COUPON ###
+    // ================= COUPON =================
     let discount = 0;
 
     if (body.couponCode) {
@@ -514,7 +529,10 @@ export async function POST(req: Request) {
 
         finalAmount -= discount;
 
-        const usage = coupon.usedBy.find((u: any) => u.userId.toString() === userId);
+        const usage = coupon.usedBy.find(
+          (u: any) => u.userId.toString() === userId
+        );
+
         if (!usage) {
           coupon.usedBy.push({ userId, count: 1 });
         } else {
@@ -525,16 +543,16 @@ export async function POST(req: Request) {
       }
     }
 
-    // ### WALLET ###
+    // ================= WALLET =================
     const walletUsed = Number(body.walletUsed || 0);
     finalAmount -= walletUsed;
     if (finalAmount < 0) finalAmount = 0;
 
-    // ### BOOKED FOR ###
+    // ================= BOOKED FOR =================
     const bookedFor = body.bookedFor || "self";
     const otherUserId = bookedFor === "other" ? body.otherUserId : null;
 
-    // ### CREATE BOOKING ###
+    // ================= CREATE BOOKING =================
     const booking = await Booking.create({
       userId,
       bookingId: "BK" + Math.floor(100000 + Math.random() * 900000),
@@ -565,10 +583,7 @@ export async function POST(req: Request) {
       status: "pending",
     });
 
-    // ----------------------------------------------------
-    // 🔔 SEND NOTIFICATIONS (ONLY ADDED THIS)
-    // ----------------------------------------------------
-
+    // ================= NOTIFICATIONS =================
     const user = await User.findById(userId);
 
     if (user?.fcmToken) {
@@ -587,21 +602,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // ----------------------------------------------------
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Booking created successfully",
-        data: booking,
-      },
-      { status: 201 }
-    );
+    // ================= SUCCESS =================
+    return NextResponse.json({
+      success: true,
+      code: "BOOKING_CREATED",
+      message: "Booking created successfully",
+      data: booking,
+    });
   } catch (error) {
     console.error("BOOKING POST ERROR:", error);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 }
-    );
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Server error",
+      data: null,
+    });
   }
 }

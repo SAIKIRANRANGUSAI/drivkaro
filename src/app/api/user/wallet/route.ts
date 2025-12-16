@@ -1,44 +1,59 @@
 // src/app/api/user/wallet/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
-
 import WalletTransaction from "@/models/WalletTransaction";
 import User from "@/models/User";
-// import { getServerSession } from "next-auth";
-// import { authOptions } from "@/app/api/auth/[...nextauth]/authOptions";
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
-    // 👉 Replace with actual auth
+    // 👉 TEMP auth via query (as you already have)
     const userId = req.nextUrl.searchParams.get("userId");
-    // const session = await getServerSession(authOptions);
-    // const userId = session?.user.id;
 
     if (!userId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({
+        success: false,
+        code: "UNAUTHORIZED",
+        message: "User not authorized",
+        data: null,
+      });
     }
 
     const user = await User.findById(userId).select("walletAmount");
     if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      return NextResponse.json({
+        success: false,
+        code: "USER_NOT_FOUND",
+        message: "User not found",
+        data: null,
+      });
     }
 
-    const txns = await WalletTransaction.find({ user: userId })
+    const transactions = await WalletTransaction.find({ user: userId })
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
 
+    // ================= SUCCESS =================
     return NextResponse.json({
-      walletAmount: user.walletAmount || 0,
-      transactions: txns,
+      success: true,
+      code: "WALLET_FETCHED",
+      message: "Wallet details fetched successfully",
+      data: {
+        walletAmount: user.walletAmount || 0,
+        transactions,
+      },
     });
   } catch (error: any) {
     console.error("Wallet GET error:", error);
-    return NextResponse.json(
-      { message: "Server error", error: error.message },
-      { status: 500 }
-    );
+
+    return NextResponse.json({
+      success: false,
+      code: "SERVER_ERROR",
+      message: "Something went wrong",
+      data: null,
+    });
   }
 }
