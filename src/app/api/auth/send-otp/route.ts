@@ -14,41 +14,23 @@ export async function POST(req: Request) {
     // =========================
     if (!mobile) {
       return NextResponse.json(
-        { success: false, message: "Mobile number is required", data: [] },
+        {
+          success: false,
+          message: "Mobile number is required",
+          data: [],
+        },
         { status: 400 }
       );
     }
 
     if (!/^\d{10}$/.test(mobile)) {
       return NextResponse.json(
-        { success: false, message: "Invalid mobile number", data: [] },
-        { status: 422 }
-      );
-    }
-
-    // =========================
-    // CHECK EXISTING OTP (ANTI-SPAM)
-    // =========================
-    const existingOtp = await Otp.findOne({
-      phone: mobile,
-      expiresAt: { $gt: new Date() },
-    });
-
-    if (existingOtp) {
-      return NextResponse.json(
         {
           success: false,
-          message: "OTP already sent. Please wait before requesting again.",
-          data: [
-            {
-              expiresIn: Math.floor(
-                (existingOtp.expiresAt.getTime() - Date.now()) / 1000
-              ),
-              otp: "******", // masked for safety
-            },
-          ],
+          message: "Invalid mobile number",
+          data: [],
         },
-        { status: 200 }
+        { status: 422 }
       );
     }
 
@@ -58,27 +40,27 @@ export async function POST(req: Request) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // Remove old OTPs
+    // Remove existing OTPs
     await Otp.deleteMany({ phone: mobile });
 
-    // Save OTP
+    // Save new OTP
     await Otp.create({
       phone: mobile,
       otpHash,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 mins
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
       used: false,
     });
 
     // =========================
-    // RESPONSE (MANUAL OTP)
+    // RESPONSE (MANUAL OTP MODE)
     // =========================
     return NextResponse.json(
       {
         success: true,
-        message: "OTP generated successfully",
+        message: "OTP sent successfully",
         data: [
           {
-            otp,          // 👈 MANUAL OTP (REMOVE WHEN SMS GATEWAY IS ADDED)
+            otp,          // ⚠️ MANUAL OTP (REMOVE WHEN SMS GATEWAY IS ADDED)
             expiresIn: 300,
           },
         ],
