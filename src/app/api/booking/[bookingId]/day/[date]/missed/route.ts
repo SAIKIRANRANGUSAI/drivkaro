@@ -2,8 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
-import User from "@/models/User"; // ⬅ added
-import { sendPushNotification } from "@/lib/sendNotification"; // ⬅ added
+import User from "@/models/User";
+import { sendPushNotification } from "@/lib/sendNotification";
+
+// 📌 Unified 200 response helper
+function apiResponse(
+  success: boolean,
+  message: string,
+  data: Record<string, any> = {}
+) {
+  return NextResponse.json(
+    {
+      success,
+      message,
+      data,
+    },
+    { status: 200 }
+  );
+}
 
 export async function POST(
   req: NextRequest,
@@ -13,16 +29,13 @@ export async function POST(
     const { bookingId, date } = await context.params;
 
     if (!bookingId || !date) {
-      return NextResponse.json(
-        { success: false, message: "bookingId and date are required" },
-        { status: 400 }
-      );
+      return apiResponse(false, "bookingId and date are required");
     }
 
     await connectDB();
 
     // ✔ find booking by ObjectId or bookingId
-    let booking = null;
+    let booking: any = null;
 
     if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
       booking = await Booking.findById(bookingId);
@@ -33,71 +46,58 @@ export async function POST(
     }
 
     if (!booking) {
-      return NextResponse.json(
-        { success: false, message: "Booking not found" },
-        { status: 404 }
-      );
+      return apiResponse(false, "Booking not found");
     }
 
     // ❌ must be paid
     if (!booking.paid) {
-      return NextResponse.json(
-        { success: false, message: "Payment incomplete, cannot mark missed" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Payment incomplete, cannot mark missed");
     }
 
     // ❌ booking must be ongoing
     if (booking.status !== "ongoing") {
-      return NextResponse.json(
-        { success: false, message: "Booking is not active/ongoing" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Booking is not active/ongoing");
     }
 
-    // ✔ check correct day entry
+    // ✔ find day entry
     const dayEntry = booking.days.find((d: any) => d.date === date);
 
     if (!dayEntry) {
-      return NextResponse.json(
-        { success: false, message: "No day schedule found for this date" },
-        { status: 404 }
-      );
+      return apiResponse(false, "No day schedule found for this date");
     }
 
     // ❌ prevent duplicate missed
     if (dayEntry.status === "missed") {
-      return NextResponse.json(
-        { success: false, message: "Day already marked missed" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Day already marked missed");
     }
 
-    // ❌ cannot mark if completed
+    // ❌ cannot mark completed
     if (dayEntry.status === "completed") {
-      return NextResponse.json(
-        { success: false, message: "Day already completed" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Day already completed");
     }
 
     // -------------------------------------
-    // 1️⃣ MARK MISSED (BookingDay DB)
+    // 1️⃣ MARK MISSED (BookingDay collection)
     // -------------------------------------
 
-    let bookingDay = await BookingDay.findOne({ booking: booking._id, date });
+    let bookingDay = await BookingDay.findOne({
+      booking: booking._id,
+      date,
+    });
 
     if (!bookingDay) {
-      bookingDay = new BookingDay({ booking: booking._id, date });
+      bookingDay = new BookingDay({
+        booking: booking._id,
+        date,
+      });
     }
 
     bookingDay.status = "missed";
     bookingDay.missedAt = new Date();
-
     await bookingDay.save();
 
     // -------------------------------------
-    // 2️⃣ UPDATE EMBEDDED ARRAY
+    // 2️⃣ UPDATE EMBEDDED DAY
     // -------------------------------------
 
     dayEntry.status = "missed";
@@ -107,8 +107,8 @@ export async function POST(
     // 3️⃣ ADD EXTRA DAY
     // -------------------------------------
 
-    const last = booking.days[booking.days.length - 1];
-    const lastDate = new Date(last.date);
+    const lastDay = booking.days[booking.days.length - 1];
+    const lastDate = new Date(lastDay.date);
 
     lastDate.setDate(lastDate.getDate() + 1);
     const newDate = lastDate.toISOString().split("T")[0];
@@ -116,36 +116,33 @@ export async function POST(
     booking.days.push({
       dayNo: booking.days.length + 1,
       date: newDate,
-      slot: last.slot,
+      slot: lastDay.slot || "",
       status: "pending",
-      startOtp: null,
-      endOtp: null,
-      instructorId: null,
-      startedAt: null,
-      completedAt: null,
+      startOtp: "",
+      endOtp: "",
+      instructorId: "",
+      startedAt: "",
+      completedAt: "",
     });
 
     booking.daysCount = booking.days.length;
-
     await booking.save();
 
-    // ----------------------------------------------------------------
-    // 🔔 SEND NOTIFICATIONS (ONLY THIS PART ADDED)
-    // ----------------------------------------------------------------
+    // --------------------------------------------------
+    // 🔔 SEND NOTIFICATIONS
+    // --------------------------------------------------
 
     const user = await User.findById(booking.userId);
     const instructor = await User.findById(booking.assignedInstructorId);
 
-    // Notify User
     if (user?.fcmToken) {
       await sendPushNotification(
         user.fcmToken,
         "Session Missed ❗",
-        `Your driving session on ${date} was marked as missed. A new day is added.`
+        `Your driving session on ${date} was marked as missed. A new day has been added.`
       );
     }
 
-    // Notify Instructor
     if (instructor?.fcmToken) {
       await sendPushNotification(
         instructor.fcmToken,
@@ -154,7 +151,6 @@ export async function POST(
       );
     }
 
-    // Notify Admin
     if (process.env.ADMIN_FCM_TOKEN) {
       await sendPushNotification(
         process.env.ADMIN_FCM_TOKEN,
@@ -163,22 +159,17 @@ export async function POST(
       );
     }
 
-    // ----------------------------------------------------------------
+    // --------------------------------------------------
 
-    return NextResponse.json({
-      success: true,
-      message: "Day marked missed. Extra day added.",
-      data: {
-        missedDate: date,
-        extraDayDate: newDate,
-        totalDays: booking.days.length,
-      },
+    return apiResponse(true, "Day marked missed. Extra day added.", {
+      bookingId: booking.bookingId || "",
+      missedDate: date || "",
+      extraDayDate: newDate || "",
+      totalDays: booking.days.length || 0,
+      bookingStatus: booking.status || "",
     });
-  } catch (err) {
-    console.error("Missed day session error:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("Missed day session error:", error);
+    return apiResponse(false, "Server error");
   }
 }

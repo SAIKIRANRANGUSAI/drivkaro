@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
-import User from "@/models/User"; // ⬅ added to fetch user + instructor tokens
-import { sendPushNotification } from "@/lib/sendNotification"; // ⬅ for notifications
+import User from "@/models/User";
+import { sendPushNotification } from "@/lib/sendNotification";
 
 // 📌 Helper – get today (yyyy-mm-dd) in India timezone
 function getTodayDate() {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  return new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+// 📌 Helper – unified 200 response
+function apiResponse(
+  success: boolean,
+  message: string,
+  data: Record<string, any> = {}
+) {
+  return NextResponse.json(
+    {
+      success,
+      message,
+      data,
+    },
+    { status: 200 }
+  );
 }
 
 export async function POST(
@@ -18,10 +36,7 @@ export async function POST(
     const { otp } = await req.json();
 
     if (!bookingId || !date || !otp) {
-      return NextResponse.json(
-        { success: false, message: "bookingId, date & otp are required" },
-        { status: 400 }
-      );
+      return apiResponse(false, "bookingId, date & otp are required");
     }
 
     await connectDB();
@@ -37,65 +52,39 @@ export async function POST(
     }
 
     if (!booking) {
-      return NextResponse.json(
-        { success: false, message: "Booking not found" },
-        { status: 404 }
-      );
+      return apiResponse(false, "Booking not found");
     }
 
     if (!booking.paid) {
-      return NextResponse.json(
-        { success: false, message: "Payment not completed" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Payment not completed");
     }
 
     if (!booking.assignedInstructorId) {
-      return NextResponse.json(
-        { success: false, message: "Instructor not assigned" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Instructor not assigned");
     }
 
     const day = booking.days.find((d: any) => d.date === date);
     if (!day) {
-      return NextResponse.json(
-        { success: false, message: "No session scheduled for this date" },
-        { status: 404 }
-      );
+      return apiResponse(false, "No session scheduled for this date");
     }
 
     const today = getTodayDate();
     if (date !== today) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Session allowed only for today. Today is ${today}`,
-          allowedDate: today,
-        },
-        { status: 400 }
-      );
+      return apiResponse(false, "Session allowed only for today", {
+        allowedDate: today,
+      });
     }
 
     if (day.startOtp !== otp) {
-      return NextResponse.json(
-        { success: false, message: "Invalid OTP" },
-        { status: 401 }
-      );
+      return apiResponse(false, "Invalid OTP");
     }
 
     if (day.status === "started") {
-      return NextResponse.json(
-        { success: false, message: "Session already started" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Session already started");
     }
 
     if (day.status === "completed") {
-      return NextResponse.json(
-        { success: false, message: "Session already completed" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Session already completed");
     }
 
     // 🔥 START SESSION
@@ -105,14 +94,12 @@ export async function POST(
     await booking.save();
 
     // -----------------------------------------------------------
-    // 🔔 SEND NOTIFICATIONS (ONLY ADDED THIS)
+    // 🔔 SEND NOTIFICATIONS
     // -----------------------------------------------------------
 
-    // Fetch User & Instructor tokens
     const user = await User.findById(booking.userId);
     const instructor = await User.findById(booking.assignedInstructorId);
 
-    // Notify User
     if (user?.fcmToken) {
       await sendPushNotification(
         user.fcmToken,
@@ -121,7 +108,6 @@ export async function POST(
       );
     }
 
-    // Notify Instructor
     if (instructor?.fcmToken) {
       await sendPushNotification(
         instructor.fcmToken,
@@ -130,7 +116,6 @@ export async function POST(
       );
     }
 
-    // Notify Admin
     if (process.env.ADMIN_FCM_TOKEN) {
       await sendPushNotification(
         process.env.ADMIN_FCM_TOKEN,
@@ -141,20 +126,13 @@ export async function POST(
 
     // -----------------------------------------------------------
 
-    return NextResponse.json({
-      success: true,
-      message: "Day session started",
-      data: {
-        bookingId: booking.bookingId,
-        date: day.date,
-        startedAt: day.startedAt,
-      },
+    return apiResponse(true, "Day session started", {
+      bookingId: booking.bookingId || "",
+      date: day.date || "",
+      startedAt: day.startedAt || "",
     });
-  } catch (err) {
-    console.error("START DAY ERROR:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("START DAY ERROR:", error);
+    return apiResponse(false, "Server error");
   }
 }
