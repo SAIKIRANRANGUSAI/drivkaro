@@ -7,6 +7,16 @@ import Referral from "@/models/Referral";
 import WalletTransaction from "@/models/WalletTransaction";
 import { sendPushNotification } from "@/lib/sendNotification";
 
+// 🔹 Utility: remove null / undefined
+function sanitize(obj: any) {
+  const clean: any = {};
+  Object.keys(obj).forEach((key) => {
+    clean[key] =
+      obj[key] === null || obj[key] === undefined ? "" : obj[key];
+  });
+  return clean;
+}
+
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
@@ -15,59 +25,72 @@ export async function POST(req: NextRequest) {
 
     if (!orderId || !paymentId || !signature) {
       return NextResponse.json(
-        { success: false, message: "Missing required fields" },
+        { success: false, message: "Missing required fields", data: {} },
         { status: 400 }
       );
     }
 
     // ----------------------------------------------------
-    // 1️⃣ VERIFY SIGNATURE
+    // 1️⃣ VERIFY RAZORPAY SIGNATURE
     // ----------------------------------------------------
-    const body = orderId + "|" + paymentId;
+    const body = `${orderId}|${paymentId}`;
 
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
-      .update(body.toString())
+      .update(body)
       .digest("hex");
 
     if (expectedSignature !== signature) {
       return NextResponse.json(
-        { success: false, message: "Invalid signature – Payment tampered" },
+        { success: false, message: "Invalid signature", data: {} },
         { status: 400 }
       );
     }
 
     // ----------------------------------------------------
-    // 2️⃣ FIND BOOKING USING razorpayOrderId
+    // 2️⃣ FIND BOOKING
     // ----------------------------------------------------
-    const booking = await Booking.findOne({ razorpayOrderId: orderId });
+    const booking: any = await Booking.findOne({
+      razorpayOrderId: orderId,
+    });
 
     if (!booking) {
       return NextResponse.json(
-        { success: false, message: "Booking not found for this orderId" },
+        { success: false, message: "Booking not found", data: {} },
         { status: 404 }
       );
     }
 
-    // Already verified?
+    // ----------------------------------------------------
+    // 3️⃣ IDEMPOTENT CHECK
+    // ----------------------------------------------------
     if (booking.paid) {
       return NextResponse.json(
-        { success: true, message: "Payment already verified", data: booking },
+        {
+          success: true,
+          message: "Payment already verified",
+          data: sanitize({
+            bookingId: booking.bookingId,
+            paymentId: booking.paymentTxnRef,
+            status: booking.paymentStatus,
+          }),
+        },
         { status: 200 }
       );
     }
 
     // ----------------------------------------------------
-    // 3️⃣ UPDATE BOOKING AS PAID
+    // 4️⃣ UPDATE BOOKING
     // ----------------------------------------------------
     booking.paid = true;
     booking.paymentStatus = "SUCCESS";
+    booking.status = "ongoing"; // ⭐ app requirement
     booking.paymentTxnRef = paymentId;
     booking.paymentVerifiedAt = new Date();
     await booking.save();
 
     // ----------------------------------------------------
-    // 4️⃣ REFERRAL AUTO CREDIT (Only on FIRST payment)
+    // 5️⃣ REFERRAL BONUS (FIRST PAYMENT ONLY)
     // ----------------------------------------------------
     const user = await User.findById(booking.userId);
 
@@ -82,13 +105,11 @@ export async function POST(req: NextRequest) {
         const referrer = await User.findById(referral.referrer);
 
         if (referrer) {
-          const bonusAmount = referral.bonusAmount || 100;
+          const bonusAmount = Number(referral.bonusAmount) || 100;
 
-          // Credit wallet
           referrer.walletAmount += bonusAmount;
           await referrer.save();
 
-          // Wallet transaction log
           await WalletTransaction.create({
             user: referrer._id,
             amount: bonusAmount,
@@ -97,7 +118,6 @@ export async function POST(req: NextRequest) {
             remark: `Referral bonus for booking ${booking.bookingId}`,
           });
 
-          // Mark referral as completed
           referral.status = "COMPLETED";
           referral.bonusCredited = true;
           referral.completedBookingId = booking._id;
@@ -107,45 +127,46 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------
-    // 5️⃣ SEND USER NOTIFICATION
+    // 6️⃣ PUSH NOTIFICATIONS
     // ----------------------------------------------------
     if (user?.fcmToken) {
       await sendPushNotification(
         user.fcmToken,
         "Payment Successful 🎉",
-        `Your payment for booking ${booking.bookingId} is successful.`
+        `Your payment for booking ${booking.bookingId} was successful.`
       );
     }
 
-    // 🔥 ADMIN NOTIFICATION
     if (process.env.ADMIN_FCM_TOKEN) {
       await sendPushNotification(
         process.env.ADMIN_FCM_TOKEN,
         "New Payment Received",
-        `Payment for booking ${booking.bookingId} is verified.`
+        `Payment verified for booking ${booking.bookingId}.`
       );
     }
 
     // ----------------------------------------------------
-    // 6️⃣ RESPONSE
+    // 7️⃣ RESPONSE (✅ ALWAYS 200)
     // ----------------------------------------------------
     return NextResponse.json(
       {
         success: true,
         message: "Payment verified successfully",
-        data: {
+        data: sanitize({
           bookingId: booking.bookingId,
-          amount: booking.totalAmount,
+          amount: booking.amount || 0,
           status: booking.paymentStatus,
           paymentId,
-        },
+          bookingStatus: booking.status,
+        }),
       },
       { status: 200 }
     );
+
   } catch (err: any) {
     console.error("Payment verify error:", err);
     return NextResponse.json(
-      { success: false, message: "Server error", error: err.message },
+      { success: false, message: "Server error", data: {} },
       { status: 500 }
     );
   }
