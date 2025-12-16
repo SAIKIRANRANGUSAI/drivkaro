@@ -44,6 +44,7 @@ export async function POST(req: Request) {
               expiresIn: Math.floor(
                 (existingOtp.expiresAt.getTime() - Date.now()) / 1000
               ),
+              otp: "******", // masked for safety
             },
           ],
         },
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
     }
 
     // =========================
-    // GENERATE OTP
+    // MANUAL OTP GENERATION
     // =========================
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
@@ -60,22 +61,24 @@ export async function POST(req: Request) {
     // Remove old OTPs
     await Otp.deleteMany({ phone: mobile });
 
-    // Save new OTP
+    // Save OTP
     await Otp.create({
       phone: mobile,
       otpHash,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 mins
+      used: false,
     });
 
-    // TODO: Send SMS here
-
+    // =========================
+    // RESPONSE (MANUAL OTP)
+    // =========================
     return NextResponse.json(
       {
         success: true,
-        message: "OTP sent successfully",
+        message: "OTP generated successfully",
         data: [
           {
-            ...(process.env.NODE_ENV !== "production" && { otp }), // hide in prod
+            otp,          // 👈 MANUAL OTP (REMOVE WHEN SMS GATEWAY IS ADDED)
             expiresIn: 300,
           },
         ],
