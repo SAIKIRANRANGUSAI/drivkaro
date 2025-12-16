@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import Coupon from "@/models/Coupon";
 
+// 📌 Unified 200 response helper
+function apiResponse(
+  success: boolean,
+  message: string,
+  data: Record<string, any> = {}
+) {
+  return NextResponse.json(
+    {
+      success,
+      message,
+      data,
+    },
+    { status: 200 }
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
@@ -11,24 +27,15 @@ export async function POST(req: NextRequest) {
 
     // ---------------- REQUIRED ----------------
     if (!code) {
-      return NextResponse.json(
-        { success: false, message: "Coupon code required" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Coupon code required");
     }
 
     if (amount == null || isNaN(amount)) {
-      return NextResponse.json(
-        { success: false, message: "Valid amount required" },
-        { status: 400 }
-      );
+      return apiResponse(false, "Valid amount required");
     }
 
     if (!userId) {
-      return NextResponse.json(
-        { success: false, message: "User ID required" },
-        { status: 400 }
-      );
+      return apiResponse(false, "User ID required");
     }
 
     const cleanCode = String(code).trim().toUpperCase();
@@ -43,38 +50,36 @@ export async function POST(req: NextRequest) {
     });
 
     if (!coupon) {
-      return NextResponse.json({
-        success: false,
+      return apiResponse(false, "Invalid or expired coupon", {
         valid: false,
-        message: "Invalid or expired coupon",
         discount: 0,
-        finalAmount: amount,
+        finalAmount: amount || 0,
+        remaining: 0,
       });
     }
 
     // ---------------- MIN AMOUNT ----------------
     if (amount < coupon.minAmount) {
-      return NextResponse.json({
-        success: false,
+      return apiResponse(false, `Minimum amount ₹${coupon.minAmount} required`, {
         valid: false,
-        message: `Minimum amount ₹${coupon.minAmount} required`,
         discount: 0,
         finalAmount: amount,
+        remaining: coupon.maxUsagePerUser || 0,
       });
     }
 
     // ---------------- USAGE LIMIT ----------------
     const usage = coupon.usedBy.find(
-      (u: { userId: any; count: number }) => u.userId.toString() === userId
+      (u: { userId: any; count: number }) =>
+        u.userId.toString() === userId
     );
 
     if (usage && usage.count >= coupon.maxUsagePerUser) {
-      return NextResponse.json({
-        success: false,
+      return apiResponse(false, "Coupon usage limit reached", {
         valid: false,
-        message: "Coupon usage limit reached",
         discount: 0,
         finalAmount: amount,
+        remaining: 0,
       });
     }
 
@@ -83,12 +88,10 @@ export async function POST(req: NextRequest) {
       ? Math.round((amount * coupon.amount) / 100)
       : coupon.amount;
 
-    // Max discount limit
     if (discount > coupon.maxDiscount) {
       discount = coupon.maxDiscount;
     }
 
-    // Should not go negative
     if (discount > amount) discount = amount;
 
     const finalAmount = amount - discount;
@@ -102,21 +105,20 @@ export async function POST(req: NextRequest) {
 
     await coupon.save();
 
-    return NextResponse.json({
-      success: true,
+    const remaining =
+      coupon.maxUsagePerUser -
+      (usage ? usage.count : 1);
+
+    return apiResponse(true, "Coupon applied", {
       valid: true,
-      message: "Coupon applied",
-      discount,
-      finalAmount,
-      remaining:
-        coupon.maxUsagePerUser - (usage ? usage.count : 1),
+      couponCode: cleanCode,
+      discount: discount || 0,
+      finalAmount: finalAmount || 0,
+      remaining: remaining > 0 ? remaining : 0,
     });
 
-  } catch (err: any) {
-    console.error("COUPON APPLY ERROR:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("COUPON APPLY ERROR:", error);
+    return apiResponse(false, "Server error");
   }
 }
