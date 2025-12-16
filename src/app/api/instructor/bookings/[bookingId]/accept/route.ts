@@ -3,7 +3,7 @@ import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import Instructor from "@/models/Instructor";
 
-// 🔹 utility: standard response
+// 🔹 utility: standard response (ALWAYS 200)
 function buildResponse(
   success: boolean,
   message: string,
@@ -12,7 +12,7 @@ function buildResponse(
   return { success, message, data };
 }
 
-// 🔹 sanitize null → ""
+// 🔹 sanitize null / undefined → ""
 function sanitize(obj: any) {
   const clean: any = {};
   Object.keys(obj || {}).forEach((key) => {
@@ -29,16 +29,13 @@ export async function POST(
   try {
     await connectDB();
 
-    // ✅ FIX: unwrap params correctly (Next.js 16)
+    // ✅ unwrap params (Next.js 16 safe)
     const { bookingId } = await context.params;
 
-    // -----------------------------
-    // VALIDATION
-    // -----------------------------
     if (!bookingId) {
       return NextResponse.json(
         buildResponse(false, "bookingId missing in URL"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -47,7 +44,7 @@ export async function POST(
     if (!instructorId) {
       return NextResponse.json(
         buildResponse(false, "x-instructor-id header is required"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -59,14 +56,14 @@ export async function POST(
     if (!instructor) {
       return NextResponse.json(
         buildResponse(false, "Instructor not found"),
-        { status: 404 }
+        { status: 200 }
       );
     }
 
     if (instructor.status !== "approved") {
       return NextResponse.json(
         buildResponse(false, "Instructor not approved by admin"),
-        { status: 403 }
+        { status: 200 }
       );
     }
 
@@ -86,31 +83,31 @@ export async function POST(
     if (!booking) {
       return NextResponse.json(
         buildResponse(false, "Booking not found"),
-        { status: 404 }
+        { status: 200 }
       );
     }
 
     // -----------------------------
-    // BOOKING RULES
+    // BUSINESS RULES
     // -----------------------------
     if (!booking.paid) {
       return NextResponse.json(
         buildResponse(false, "Payment not completed"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
     if (["cancelled", "completed"].includes(booking.status)) {
       return NextResponse.json(
         buildResponse(false, `Booking already ${booking.status}`),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
     if (booking.assignedInstructorId) {
       return NextResponse.json(
         buildResponse(false, "Instructor already assigned"),
-        { status: 409 }
+        { status: 200 }
       );
     }
 
@@ -118,7 +115,7 @@ export async function POST(
     // ASSIGN INSTRUCTOR
     // -----------------------------
     booking.assignedInstructorId = instructor._id;
-    booking.assignedGender = instructor.gender;
+    booking.assignedGender = instructor.gender || "";
     booking.status = "ongoing";
     booking.instructorAcceptedAt = new Date();
 
@@ -132,7 +129,7 @@ export async function POST(
     await booking.save();
 
     // -----------------------------
-    // RESPONSE
+    // RESPONSE (ALWAYS 200)
     // -----------------------------
     return NextResponse.json(
       buildResponse(
@@ -153,9 +150,10 @@ export async function POST(
 
   } catch (err: any) {
     console.error("Instructor accept booking error:", err);
+
     return NextResponse.json(
-      buildResponse(false, err.message || "Internal Server Error"),
-      { status: 500 }
+      buildResponse(false, "Server error"),
+      { status: 200 }
     );
   }
 }

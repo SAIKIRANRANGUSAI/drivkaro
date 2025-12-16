@@ -3,7 +3,7 @@ import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import Instructor from "@/models/Instructor";
 
-// 🔹 utility: standard response
+// 🔹 utility: standard response (ALWAYS 200)
 function buildResponse(
   success: boolean,
   message: string,
@@ -12,7 +12,7 @@ function buildResponse(
   return { success, message, data };
 }
 
-// 🔹 sanitize null → ""
+// 🔹 sanitize null / undefined → ""
 function sanitize(obj: any) {
   const clean: any = {};
   Object.keys(obj || {}).forEach((key) => {
@@ -29,16 +29,13 @@ export async function POST(
   try {
     await connectDB();
 
-    // ✅ FIX: unwrap params correctly (Next.js 16)
+    // ✅ unwrap params (Next.js 16 safe)
     const { bookingId } = await context.params;
 
-    // -----------------------------
-    // VALIDATION
-    // -----------------------------
     if (!bookingId) {
       return NextResponse.json(
         buildResponse(false, "bookingId missing in URL"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -47,7 +44,7 @@ export async function POST(
     if (!instructorId) {
       return NextResponse.json(
         buildResponse(false, "x-instructor-id header required"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -70,14 +67,14 @@ export async function POST(
     if (!instructor) {
       return NextResponse.json(
         buildResponse(false, "Instructor not found"),
-        { status: 401 }
+        { status: 200 }
       );
     }
 
     if (instructor.status !== "approved") {
       return NextResponse.json(
         buildResponse(false, "Instructor not approved by admin"),
-        { status: 403 }
+        { status: 200 }
       );
     }
 
@@ -97,7 +94,7 @@ export async function POST(
     if (!booking) {
       return NextResponse.json(
         buildResponse(false, "Booking not found"),
-        { status: 404 }
+        { status: 200 }
       );
     }
 
@@ -110,14 +107,14 @@ export async function POST(
           false,
           "Payment not completed. Cannot reject booking."
         ),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
     if (["cancelled", "completed"].includes(booking.status)) {
       return NextResponse.json(
         buildResponse(false, `Booking already ${booking.status}`),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -127,7 +124,7 @@ export async function POST(
           false,
           "No instructor was assigned earlier. Cannot reject."
         ),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -137,7 +134,7 @@ export async function POST(
           false,
           "You are not the assigned instructor for this booking"
         ),
-        { status: 403 }
+        { status: 200 }
       );
     }
 
@@ -145,7 +142,7 @@ export async function POST(
     // UNASSIGN & REVERT BOOKING
     // -----------------------------
     booking.assignedInstructorId = null;
-    booking.assignedGender = null;
+    booking.assignedGender = "";
     booking.status = "pending";
     booking.instructorRejectedAt = new Date();
     booking.instructorRejectReason = reason;
@@ -153,7 +150,7 @@ export async function POST(
     await booking.save();
 
     // -----------------------------
-    // RESPONSE
+    // RESPONSE (ALWAYS 200)
     // -----------------------------
     return NextResponse.json(
       buildResponse(
@@ -170,9 +167,10 @@ export async function POST(
 
   } catch (err) {
     console.error("Instructor reject booking error:", err);
+
     return NextResponse.json(
       buildResponse(false, "Server error"),
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
