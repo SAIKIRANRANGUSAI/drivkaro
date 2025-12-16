@@ -5,7 +5,7 @@ import Instructor from "@/models/Instructor";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
-// 🔹 utility: standard response
+// 🔹 utility: standard response (ALWAYS 200)
 function buildResponse(
   success: boolean,
   message: string,
@@ -18,29 +18,31 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
-    const { mobile, otp } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const mobile = body?.mobile || "";
+    const otp = body?.otp || "";
 
     // -----------------------------
-    // VALIDATIONS
+    // VALIDATIONS (APP FRIENDLY)
     // -----------------------------
     if (!mobile || !otp) {
       return NextResponse.json(
         buildResponse(false, "mobile and otp are required"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
     if (!/^[6-9]\d{9}$/.test(mobile)) {
       return NextResponse.json(
         buildResponse(false, "Invalid mobile number"),
-        { status: 422 }
+        { status: 200 }
       );
     }
 
     if (!/^\d{6}$/.test(otp)) {
       return NextResponse.json(
         buildResponse(false, "Invalid OTP format"),
-        { status: 422 }
+        { status: 200 }
       );
     }
 
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (!record) {
       return NextResponse.json(
         buildResponse(false, "Invalid or expired OTP"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -93,31 +95,32 @@ export async function POST(req: NextRequest) {
 
     const accessToken = jwt.sign(
       tokenPayload,
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET || "secret",
       { expiresIn: "7d" }
     );
 
     // -----------------------------
-    // RESPONSE (APP FRIENDLY)
+    // RESPONSE (ALWAYS 200, NO NULLS)
     // -----------------------------
     return NextResponse.json(
       buildResponse(true, "OTP verified successfully", {
         instructor: {
           id: instructor._id.toString(),
           fullName: instructor.fullName || "",
-          mobile: instructor.mobile,
-          status: instructor.status,
+          mobile: instructor.mobile || "",
+          status: instructor.status || "",
         },
-        accessToken,
+        accessToken: accessToken || "",
       }),
       { status: 200 }
     );
 
   } catch (err) {
     console.error("Verify OTP error:", err);
+
     return NextResponse.json(
       buildResponse(false, "Server error"),
-      { status: 500 }
+      { status: 200 }
     );
   }
 }

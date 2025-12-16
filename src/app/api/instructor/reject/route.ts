@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Instructor from "@/models/Instructor";
 
-// 🔹 utility: standard response
+// 🔹 utility: standard response (ALWAYS 200)
 function buildResponse(
   success: boolean,
   message: string,
@@ -15,15 +15,17 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
-    const { id, message } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const id = body?.id || "";
+    const message = body?.message || "";
 
     // -----------------------------
-    // VALIDATION
+    // VALIDATION (APP FRIENDLY)
     // -----------------------------
     if (!id) {
       return NextResponse.json(
         buildResponse(false, "Instructor id is required"),
-        { status: 400 }
+        { status: 200 }
       );
     }
 
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
       id,
       {
         status: "rejected",
-        rejectionMessage: message || "",
+        rejectionMessage: message,
       },
       { new: true }
     );
@@ -42,17 +44,17 @@ export async function POST(req: NextRequest) {
     if (!instructor) {
       return NextResponse.json(
         buildResponse(false, "Instructor not found"),
-        { status: 404 }
+        { status: 200 }
       );
     }
 
     // -----------------------------
-    // RESPONSE (APP FRIENDLY)
+    // RESPONSE (NO NULLS, ALWAYS 200)
     // -----------------------------
     return NextResponse.json(
       buildResponse(true, "Instructor rejected successfully", {
         id: instructor._id.toString(),
-        status: instructor.status,
+        status: instructor.status || "",
         rejectionMessage: instructor.rejectionMessage || "",
       }),
       { status: 200 }
@@ -60,9 +62,10 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error("Reject instructor error:", err);
+
     return NextResponse.json(
       buildResponse(false, "Server error"),
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
