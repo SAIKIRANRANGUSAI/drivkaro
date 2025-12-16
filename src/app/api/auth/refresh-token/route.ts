@@ -14,19 +14,23 @@ export async function POST(req: Request) {
       .find((c) => c.startsWith("drivkaro_refresh="))
       ?.split("=")[1];
 
-    // === VALIDATION ===
+    // =========================
+    // VALIDATION (APP EXPECTS 200)
+    // =========================
     if (!refreshToken) {
       return NextResponse.json(
         {
           success: false,
           message: "Refresh token missing",
-          data: null,
+          data: [],
         },
-        { status: 401 }
+        { status: 200 }
       );
     }
 
-    // === VERIFY TOKEN ===
+    // =========================
+    // VERIFY TOKEN
+    // =========================
     let decoded: any;
     try {
       decoded = verifyRefreshToken(refreshToken);
@@ -35,26 +39,30 @@ export async function POST(req: Request) {
         {
           success: false,
           message: "Invalid refresh token",
-          data: null,
+          data: [],
         },
-        { status: 401 }
+        { status: 200 }
       );
     }
 
-    // === FIND USER ===
+    // =========================
+    // FIND USER
+    // =========================
     const user = await User.findById(decoded.userId);
     if (!user) {
       return NextResponse.json(
         {
           success: false,
           message: "User not found",
-          data: null,
+          data: [],
         },
-        { status: 404 }
+        { status: 200 }
       );
     }
 
-    // === NEW ACCESS TOKEN ===
+    // =========================
+    // NEW ACCESS TOKEN
+    // =========================
     const newAccessToken = signAccessToken({
       userId: user._id,
       mobile: user.mobile,
@@ -64,10 +72,12 @@ export async function POST(req: Request) {
       {
         success: true,
         message: "Access token refreshed",
-        data: {
-          accessToken: newAccessToken,
-          expiresIn: 900, // 15 mins
-        },
+        data: [
+          {
+            accessToken: newAccessToken,
+            expiresIn: 900, // 15 mins
+          },
+        ],
       },
       { status: 200 }
     );
@@ -78,7 +88,7 @@ export async function POST(req: Request) {
       {
         success: false,
         message: "Server error",
-        data: null,
+        data: [],
       },
       { status: 500 }
     );

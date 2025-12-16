@@ -1,27 +1,23 @@
 import { NextResponse } from "next/server";
 
 export async function POST() {
-  // Clear cookie by setting to empty + expired date
   const res = NextResponse.json(
     {
       success: true,
       message: "Logged out successfully",
-      data: null,
+      data: [],
     },
     { status: 200 }
   );
 
+  // Clear refresh token cookie
   res.cookies.set("drivkaro_refresh", "", {
     httpOnly: true,
     path: "/api/auth/refresh-token",
-    expires: new Date(0), // expires immediately
+    expires: new Date(0), // expire immediately
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
-
-  // Optional: Add a delay to simulate processing time for loader on client-side
-  // (Client should handle the loader; server just responds)
-  await new Promise(resolve => setTimeout(resolve, 500));
 
   return res;
 }
