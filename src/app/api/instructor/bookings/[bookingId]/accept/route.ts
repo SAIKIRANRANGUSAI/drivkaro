@@ -24,12 +24,13 @@ function sanitize(obj: any) {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { bookingId: string } }
+  context: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     await connectDB();
 
-    const { bookingId } = params;
+    // ✅ FIX: unwrap params correctly (Next.js 16)
+    const { bookingId } = await context.params;
 
     // -----------------------------
     // VALIDATION
@@ -101,10 +102,7 @@ export async function POST(
 
     if (["cancelled", "completed"].includes(booking.status)) {
       return NextResponse.json(
-        buildResponse(
-          false,
-          `Booking already ${booking.status}`
-        ),
+        buildResponse(false, `Booking already ${booking.status}`),
         { status: 400 }
       );
     }
@@ -124,7 +122,6 @@ export async function POST(
     booking.status = "ongoing";
     booking.instructorAcceptedAt = new Date();
 
-    // Assign instructor per day
     booking.days = (booking.days || []).map((day: any) => ({
       ...day,
       instructorId: instructor._id,
@@ -138,15 +135,19 @@ export async function POST(
     // RESPONSE
     // -----------------------------
     return NextResponse.json(
-      buildResponse(true, "Booking accepted successfully", sanitize({
-        bookingId: booking.bookingId || booking._id.toString(),
-        status: booking.status,
-        instructor: {
-          id: instructor._id.toString(),
-          name: instructor.fullName || "",
-          mobile: instructor.mobile || "",
-        },
-      })),
+      buildResponse(
+        true,
+        "Booking accepted successfully",
+        sanitize({
+          bookingId: booking.bookingId || booking._id.toString(),
+          status: booking.status,
+          instructor: {
+            id: instructor._id.toString(),
+            name: instructor.fullName || "",
+            mobile: instructor.mobile || "",
+          },
+        })
+      ),
       { status: 200 }
     );
 
