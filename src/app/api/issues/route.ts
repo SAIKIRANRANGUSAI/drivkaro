@@ -24,24 +24,26 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
+    const body = await req.json();
+
     const {
-      userId,
-      bookingId,
-      instructorId,
-      issueType,
-      message,
-    } = await req.json();
+      userName = "",
+      bookingId = "",
+      instructorName = "",
+      issueType = "",
+      message = "",
+    } = body;
 
     // ---------------- VALIDATION ----------------
-    if (!userId || !issueType || !message) {
-      return apiResponse(false, "Missing required fields");
+    if (!userName || !issueType || !message) {
+      return apiResponse(false, "Required fields missing", {});
     }
 
     // ---------------- SAVE ISSUE ----------------
     const issue = await Issue.create({
-      userId,
-      bookingId: bookingId || "",
-      instructorId: instructorId || "",
+      userName,
+      bookingId,
+      instructorName,
       issueType,
       message,
       status: "pending",
@@ -50,29 +52,29 @@ export async function POST(req: NextRequest) {
     // ---------------- WHATSAPP MESSAGE ----------------
     const text = encodeURIComponent(
       `🚨 New DrivKaro Issue Report\n\n` +
-        `👤 User ID: ${userId}\n` +
+        `👤 User: ${userName}\n` +
         (bookingId ? `📘 Booking ID: ${bookingId}\n` : "") +
-        (instructorId ? `🧑‍🏫 Instructor ID: ${instructorId}\n` : "") +
+        (instructorName ? `🧑‍🏫 Instructor: ${instructorName}\n` : "") +
         `🐞 Issue Type: ${issueType}\n\n` +
         `📝 Message:\n${message}\n`
     );
 
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
 
+    // ---------------- RESPONSE ----------------
     return apiResponse(true, "Issue submitted successfully", {
       issueId: issue._id?.toString() || "",
-      userId: issue.userId || "",
+      userName: issue.userName || "",
       bookingId: issue.bookingId || "",
-      instructorId: issue.instructorId || "",
+      instructorName: issue.instructorName || "",
       issueType: issue.issueType || "",
       message: issue.message || "",
       status: issue.status || "pending",
       createdAt: issue.createdAt || "",
-      whatsappUrl: whatsappUrl || "",
+      whatsappUrl,
     });
-
   } catch (error) {
     console.error("Issue submit error:", error);
-    return apiResponse(false, "Server error");
+    return apiResponse(false, "Server error", {});
   }
 }
