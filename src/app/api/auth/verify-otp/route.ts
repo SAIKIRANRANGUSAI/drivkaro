@@ -25,21 +25,22 @@ export async function POST(req: Request) {
     // =========================
     if (!mobile || !otp) {
       return NextResponse.json(
-        { success: false, message: "Mobile and OTP are required", data: [] },
+        { success: false, message: "Mobile and OTP are required" },
         { status: 400 }
       );
     }
 
-    if (!/^\d{10}$/.test(mobile)) {
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
       return NextResponse.json(
-        { success: false, message: "Invalid mobile number", data: [] },
+        { success: false, message: "Invalid mobile number" },
         { status: 422 }
       );
     }
 
-    if (!/^\d{6}$/.test(otp)) {
+    // ✅ FIX: accept 4-digit OTP (manual mode)
+    if (!/^\d{4}$/.test(otp)) {
       return NextResponse.json(
-        { success: false, message: "Invalid OTP format", data: [] },
+        { success: false, message: "Invalid OTP format" },
         { status: 422 }
       );
     }
@@ -47,12 +48,19 @@ export async function POST(req: Request) {
     // =========================
     // FIND OTP RECORD
     // =========================
-    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-    const record = await Otp.findOne({ phone: mobile, used: false });
+    const otpHash = crypto
+      .createHash("sha256")
+      .update(otp)
+      .digest("hex");
+
+    const record = await Otp.findOne({
+      phone: mobile,
+      used: false,
+    });
 
     if (!record) {
       return NextResponse.json(
-        { success: false, message: "OTP expired or not found", data: [] },
+        { success: false, message: "OTP expired or not found" },
         { status: 200 }
       );
     }
@@ -62,7 +70,7 @@ export async function POST(req: Request) {
     // =========================
     if (record.expiresAt < new Date()) {
       return NextResponse.json(
-        { success: false, message: "OTP expired", data: [] },
+        { success: false, message: "OTP expired" },
         { status: 200 }
       );
     }
@@ -72,7 +80,7 @@ export async function POST(req: Request) {
     // =========================
     if (record.otpHash !== otpHash) {
       return NextResponse.json(
-        { success: false, message: "Invalid OTP", data: [] },
+        { success: false, message: "Invalid OTP" },
         { status: 200 }
       );
     }
@@ -105,35 +113,42 @@ export async function POST(req: Request) {
     // =========================
     let usedReferralCode = null;
     if (user.referredBy) {
-      const referrer = await User.findById(user.referredBy).select("referralCode");
+      const referrer = await User.findById(user.referredBy).select(
+        "referralCode"
+      );
       usedReferralCode = referrer?.referralCode || null;
     }
 
     // =========================
     // TOKENS
     // =========================
-    const accessToken = signAccessToken({ userId: user._id, mobile });
-    const refreshToken = signRefreshToken({ userId: user._id, mobile });
+    const accessToken = signAccessToken({
+      userId: user._id,
+      mobile,
+    });
+
+    const refreshToken = signRefreshToken({
+      userId: user._id,
+      mobile,
+    });
 
     // =========================
-    // SUCCESS RESPONSE
+    // RESPONSE
     // =========================
     const res = NextResponse.json(
       {
         success: true,
         message: "OTP verified successfully",
-        data: [
-          {
-            user: {
-              _id: user._id,
-              mobile: user.mobile,
-              myReferralCode: user.referralCode,
-              usedReferralCode,
-              walletAmount: user.walletAmount || 0,
-            },
-            accessToken,
+        data: {
+          user: {
+            _id: user._id,
+            mobile: user.mobile,
+            myReferralCode: user.referralCode,
+            usedReferralCode,
+            walletAmount: user.walletAmount || 0,
           },
-        ],
+          accessToken,
+        },
       },
       { status: 200 }
     );
@@ -146,7 +161,7 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/api/auth/refresh-token",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 
     return res;
@@ -154,7 +169,7 @@ export async function POST(req: Request) {
     console.error("Verify OTP Error:", error);
 
     return NextResponse.json(
-      { success: false, message: "Server error", data: [] },
+      { success: false, message: "Server error" },
       { status: 500 }
     );
   }
