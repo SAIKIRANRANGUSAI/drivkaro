@@ -143,11 +143,19 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
 
       {/* NAVIGATION SCROLL AREA */}
       <nav
-        className="
-          flex-1 overflow-y-auto overflow-x-hidden
-          px-3 py-6 space-y-2
-          scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-800/30 hover:scrollbar-thumb-gray-600
-        "
+        // className="
+        //   flex-1 overflow-y-auto overflow-x-hidden
+        //   px-3 py-6 space-y-2
+        //   scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-800/30 hover:scrollbar-thumb-gray-600
+        // "
+      
+  className="
+    flex-1 overflow-y-auto overflow-x-hidden
+    px-3 py-6 space-y-2
+    hide-scrollbar
+  "
+
+
       >
         <SidebarSection title="MAIN" isOpen={isOpen} />
         <SidebarItem icon={LayoutDashboard} title="Dashboard" link="/admin" isOpen={isOpen} />
