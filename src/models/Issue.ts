@@ -1,33 +1,25 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose from "mongoose";
 
-export interface IIssue extends Document {
-  userId: mongoose.Types.ObjectId;
-  bookingId?: string;
-  instructorId?: mongoose.Types.ObjectId;
-
-  issueType: "driver" | "vehicle" | "payment" | "other";
-  message: string;
-
-  status: "pending" | "resolved";
-}
-
-const IssueSchema = new Schema<IIssue>(
+const IssueSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Types.ObjectId, ref: "User", required: true },
-    bookingId: { type: String },
-    instructorId: { type: mongoose.Types.ObjectId, ref: "Instructor" },
-
-    issueType: {
+    bookingId: {
       type: String,
-      enum: ["driver", "vehicle", "payment", "other"],
+      default: "",
+    },
+
+    serviceType: {
+      type: String,
       required: true,
     },
 
-    message: { type: String, required: true },
+    message: {
+      type: String,
+      required: true,
+    },
 
     status: {
       type: String,
-      enum: ["pending", "resolved"],
+      enum: ["pending", "resolved", "closed"],
       default: "pending",
     },
   },
@@ -35,4 +27,4 @@ const IssueSchema = new Schema<IIssue>(
 );
 
 export default mongoose.models.Issue ||
-  mongoose.model<IIssue>("Issue", IssueSchema);
+  mongoose.model("Issue", IssueSchema);
