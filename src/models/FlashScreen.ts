@@ -8,9 +8,11 @@ export interface IFlashScreen extends Document {
 
 const FlashScreenSchema = new Schema<IFlashScreen>(
   {
-    image: { type: String, required: true },
-    heading: { type: String, required: true },
-    description: { type: String, required: true },
+    // ❌ remove required
+    image: { type: String, default: "" },
+
+    heading: { type: String, default: "" },
+    description: { type: String, default: "" },
   },
   { timestamps: true }
 );

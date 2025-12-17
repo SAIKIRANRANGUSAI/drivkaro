@@ -1,6 +1,6 @@
 "use client";
 import { Bell, ChevronDown, Search, Menu, User, Settings, LogOut } from "lucide-react";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
@@ -9,9 +9,33 @@ interface AdminHeaderProps {
   setIsOpen: Dispatch<SetStateAction<boolean>>;
 }
 
+interface LogoData {
+  logoUrl: string;
+}
+
 export default function AdminHeader({ isOpen, setIsOpen }: AdminHeaderProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [logo, setLogo] = useState<LogoData>({ logoUrl: "" });
+  const [loadingLogo, setLoadingLogo] = useState(true);
+
+  async function fetchLogo() {
+    try {
+      const res = await fetch("/api/admin/logo");
+      const json = await res.json();
+      if (json.success) {
+        setLogo(json.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch logo:", error);
+    } finally {
+      setLoadingLogo(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchLogo();
+  }, []);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -27,7 +51,7 @@ export default function AdminHeader({ isOpen, setIsOpen }: AdminHeaderProps) {
         transition-all duration-300 ease-in-out
       `}
     >
-      {/* Left Section: Mobile Menu + Title */}
+      {/* Left Section: Mobile Menu + Logo/Title */}
       <div className="flex items-center gap-4">
         {/* Mobile Toggle Button */}
         <button
@@ -37,15 +61,36 @@ export default function AdminHeader({ isOpen, setIsOpen }: AdminHeaderProps) {
         >
           <Menu size={20} />
         </button>
-
-        <motion.h1
-          className="text-xl lg:text-2xl font-bold text-[#0C1F4B] tracking-tight hidden sm:block"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          Admin Dashboard
-        </motion.h1>
+        <div className="flex items-center gap-3 hidden sm:flex">
+          <div className="relative flex-shrink-0">
+            {loadingLogo ? (
+              <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg flex items-center justify-center shadow-lg animate-pulse">
+                <span className="text-sm font-bold text-gray-900">DK</span>
+              </div>
+            ) : logo.logoUrl ? (
+              <img
+                src={logo.logoUrl}
+                alt="Drivkaro Logo"
+                className="w-8 h-8 rounded-lg shadow-sm object-contain bg-white p-1"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  e.currentTarget.nextElementSibling?.classList.remove("hidden");
+                }}
+              />
+            ) : null}
+            <div className="hidden w-8 h-8 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg flex items-center justify-center shadow-lg animate-pulse">
+              <span className="text-sm font-bold text-gray-900">DK</span>
+            </div>
+          </div>
+          <motion.h1
+            className="text-xl lg:text-2xl font-bold text-[#0C1F4B] tracking-tight"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            Admin Dashboard
+          </motion.h1>
+        </div>
       </div>
 
       {/* Center Section: Search Bar (Optional/Collapsible) */}
@@ -118,7 +163,7 @@ export default function AdminHeader({ isOpen, setIsOpen }: AdminHeaderProps) {
                 <div className="py-2">
                   <Link href="/admin/change-password" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                     <User size={18} />
-                    change-password
+                    Change Password
                   </Link>
                   <Link href="/admin/settings" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                     <Settings size={18} />

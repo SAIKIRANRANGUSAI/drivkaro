@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 
 export async function POST() {
-  const res = NextResponse.json({ success: true, message: "Logged out" });
+  const res = NextResponse.json({
+    success: true,
+    message: "Logged out successfully",
+  });
 
-  // remove cookie
   res.cookies.set("adminLoggedIn", "", {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 0,
