@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongoose";
-import LogoSetting from "@/models/LogoSetting";
-import FlashScreen from "@/models/FlashScreen";
 import AdminLog from "@/models/AdminLog";
 
-export async function GET() {
+export async function POST(req: Request) {
   await dbConnect();
 
-  const logo = await LogoSetting.findOne();
-  const flashScreens = await FlashScreen.find().sort({ createdAt: 1 });
-  const logs = await AdminLog.find().sort({ createdAt: -1 }).limit(200);
+  const body = await req.json();
 
-  return NextResponse.json({
-    logo: logo?.logoUrl || "",
-    flashScreens,
-    logs,
+  await AdminLog.create({
+    ip: body.ip,
+    browser: body.browser,
+    os: body.os,
   });
+
+  return NextResponse.json({ success: true });
 }
