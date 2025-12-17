@@ -1,5 +1,7 @@
 "use client";
 
+import AdminPageWrapper from "@/components/admin/AdminPageWrapper";
+import SkeletonCard from "@/components/admin/SkeletonCard";
 import { useEffect, useState } from "react";
 import { Trash2, RefreshCw, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import Swal from "sweetalert2";
@@ -13,6 +15,17 @@ type Issue = {
 };
 
 const ITEMS_PER_PAGE = 10; // Increased for better UX on larger screens
+
+export  function UsersPage() {
+  return (
+    <AdminPageWrapper
+      title="Users Management"
+      description="View and manage registered users"
+    >
+      <SkeletonCard />
+    </AdminPageWrapper>
+  );
+}
 
 export default function AdminIssuesPage() {
   const [issues, setIssues] = useState<Issue[]>([]);

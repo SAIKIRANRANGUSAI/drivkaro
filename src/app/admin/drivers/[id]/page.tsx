@@ -2,6 +2,9 @@ import dbConnect from "@/lib/mongoose";
 import Instructor from "@/models/Instructor";
 import Booking from "@/models/Booking";
 import BookingDay from "@/models/BookingDay";
+import AdminPageWrapper from "@/components/admin/AdminPageWrapper";
+import SkeletonCard from "@/components/admin/SkeletonCard";
+
 
 import Image from "next/image";
 import {
@@ -20,7 +23,20 @@ import {
 
 import { redirect } from "next/navigation";
 
+
+export  function UsersPage() {
+  return (
+    <AdminPageWrapper
+      title="Users Management"
+      description="View and manage registered users"
+    >
+      <SkeletonCard />
+    </AdminPageWrapper>
+  );
+}
+
 /* -------- SERVER ACTIONS -------- */
+
 
 async function blockInstructor(formData: FormData) {
   "use server";

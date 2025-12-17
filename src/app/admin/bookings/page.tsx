@@ -142,7 +142,19 @@
 // }
 
 import BookingsList from "@/components/admin/BookingsList";
+import AdminPageWrapper from "@/components/admin/AdminPageWrapper";
+import SkeletonCard from "@/components/admin/SkeletonCard";
 
+export  function UsersPage() {
+  return (
+    <AdminPageWrapper
+      title="Users Management"
+      description="View and manage registered users"
+    >
+      <SkeletonCard />
+    </AdminPageWrapper>
+  );
+}
 export default function Page() {
   return <BookingsList />;
 }

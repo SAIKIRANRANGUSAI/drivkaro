@@ -3,6 +3,20 @@ import Instructor from "@/models/Instructor";
 import Link from "next/link";
 import { Eye, Phone, MapPin, CheckCircle2, Ban } from "lucide-react";
 
+import AdminPageWrapper from "@/components/admin/AdminPageWrapper";
+import SkeletonCard from "@/components/admin/SkeletonCard";
+
+export  function UsersPage() {
+  return (
+    <AdminPageWrapper
+      title="Users Management"
+      description="View and manage registered users"
+    >
+      <SkeletonCard />
+    </AdminPageWrapper>
+  );
+}
+
 export default async function DriversPage() {
   await dbConnect();
 

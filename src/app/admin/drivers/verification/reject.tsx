@@ -2,6 +2,20 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import AdminPageWrapper from "@/components/admin/AdminPageWrapper";
+import SkeletonCard from "@/components/admin/SkeletonCard";
+
+
+export  function UsersPage() {
+  return (
+    <AdminPageWrapper
+      title="Users Management"
+      description="View and manage registered users"
+    >
+      <SkeletonCard />
+    </AdminPageWrapper>
+  );
+}
 
 export default function RejectPage() {
   const router = useRouter();

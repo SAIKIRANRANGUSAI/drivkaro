@@ -3,6 +3,8 @@ import Booking from "@/models/Booking";
 import User from "@/models/User";
 import OtherUser from "@/models/OtherUser";
 import Instructor from "@/models/Instructor";
+import AdminPageWrapper from "@/components/admin/AdminPageWrapper";
+import SkeletonCard from "@/components/admin/SkeletonCard";
 
 import {
   User as UserIcon,
@@ -16,6 +18,16 @@ import {
   IndianRupee,
 } from "lucide-react";
 
+export  function UsersPage() {
+  return (
+    <AdminPageWrapper
+      title="Users Management"
+      description="View and manage registered users"
+    >
+      <SkeletonCard />
+    </AdminPageWrapper>
+  );
+}
 /* ---------------- PAGE ---------------- */
 
 export default async function BookingView(props: any) {

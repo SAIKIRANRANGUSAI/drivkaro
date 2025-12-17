@@ -1,6 +1,8 @@
 import dbConnect from "@/lib/mongoose";
 import Instructor from "@/models/Instructor";
 import Link from "next/link";
+import AdminPageWrapper from "@/components/admin/AdminPageWrapper";
+import SkeletonCard from "@/components/admin/SkeletonCard";
 import { 
   ShieldCheck, 
   Phone, 
@@ -18,6 +20,16 @@ import {
   Filter
 } from "lucide-react";
 
+export  function UsersPage() {
+  return (
+    <AdminPageWrapper
+      title="Users Management"
+      description="View and manage registered users"
+    >
+      <SkeletonCard />
+    </AdminPageWrapper>
+  );
+}
 export default async function VerificationListPage() {
   await dbConnect();
 

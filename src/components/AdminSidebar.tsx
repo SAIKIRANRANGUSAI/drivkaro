@@ -46,6 +46,30 @@ interface LogoData {
   logoUrl: string;
 }
 
+function SidebarSkeleton({ isOpen }: { isOpen: boolean }) {
+  return (
+    <div className="space-y-3 animate-pulse">
+      {[...Array(7)].map((_, i) => (
+        <div
+          key={i}
+          className={`flex items-center gap-4 py-3 px-3 rounded-xl ${
+            !isOpen ? "justify-center" : ""
+          }`}
+        >
+          {/* Icon skeleton */}
+          <div className="w-8 h-8 rounded-lg bg-gray-700/60" />
+
+          {/* Text skeleton */}
+          {isOpen && (
+            <div className="h-3 w-32 rounded bg-gray-700/60" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
   const [logo, setLogo] = useState<LogoData>({ logoUrl: "" });
   const [loadingLogo, setLoadingLogo] = useState(true);
@@ -60,8 +84,11 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
     } catch (error) {
       console.error("Failed to fetch logo:", error);
     } finally {
-      setLoadingLogo(false);
-    }
+  requestAnimationFrame(() => {
+    setLoadingLogo(false);
+  });
+}
+
   }
 
   useEffect(() => {
@@ -142,44 +169,36 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
       </div>
 
       {/* NAVIGATION SCROLL AREA */}
-      <nav
-        // className="
-        //   flex-1 overflow-y-auto overflow-x-hidden
-        //   px-3 py-6 space-y-2
-        //   scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-800/30 hover:scrollbar-thumb-gray-600
-        // "
-      
-  className="
-    flex-1 overflow-y-auto overflow-x-hidden
-    px-3 py-6 space-y-2
-    hide-scrollbar
-  "
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-6 space-y-2 hide-scrollbar">
+  {loadingLogo ? (
+    <SidebarSkeleton isOpen={isOpen} />
+  ) : (
+    <>
+      <SidebarSection title="MAIN" isOpen={isOpen} />
+      <SidebarItem icon={LayoutDashboard} title="Dashboard" link="/admin" isOpen={isOpen} />
 
+      <SidebarSection title="USER MANAGEMENT" isOpen={isOpen} />
+      <SidebarItem icon={Users} title="Users" link="/admin/users" isOpen={isOpen} />
+      <SidebarItem icon={Wallet} title="Wallet & Referrals" link="/admin/wallet" isOpen={isOpen} />
+      <SidebarItem icon={Award} title="License Requests" link="/admin/license" isOpen={isOpen} />
 
-      >
-        <SidebarSection title="MAIN" isOpen={isOpen} />
-        <SidebarItem icon={LayoutDashboard} title="Dashboard" link="/admin" isOpen={isOpen} />
+      <SidebarSection title="DRIVERS" isOpen={isOpen} />
+      <SidebarItem icon={CarFront} title="Drivers" link="/admin/drivers" isOpen={isOpen} />
+      <SidebarItem icon={Briefcase} title="Driver Verification" link="/admin/drivers/verification" isOpen={isOpen} />
 
-        <SidebarSection title="USER MANAGEMENT" isOpen={isOpen} />
-        <SidebarItem icon={Users} title="Users" link="/admin/users" isOpen={isOpen} />
-        <SidebarItem icon={Wallet} title="Wallet & Referrals" link="/admin/wallet" isOpen={isOpen} />
-        <SidebarItem icon={Award} title="License Requests" link="/admin/license" isOpen={isOpen} />
+      <SidebarSection title="BOOKINGS" isOpen={isOpen} />
+      <SidebarItem icon={CalendarCheck} title="Bookings" link="/admin/bookings" isOpen={isOpen} />
 
-        <SidebarSection title="DRIVERS" isOpen={isOpen} />
-        <SidebarItem icon={CarFront} title="Drivers" link="/admin/drivers" isOpen={isOpen} />
-        <SidebarItem icon={Briefcase} title="Driver Verification" link="/admin/drivers/verification" isOpen={isOpen} />
+      <SidebarSection title="SUPPORT & SYSTEM" isOpen={isOpen} />
+      <SidebarItem icon={AlertCircle} title="Issues" link="/admin/issues" isOpen={isOpen} />
+      <SidebarItem icon={TicketPercent} title="Coupons" link="/admin/coupons" isOpen={isOpen} />
+      <SidebarItem icon={Bell} title="Notifications" link="/admin/notifications" isOpen={isOpen} />
+      <SidebarItem icon={DollarSign} title="Payments" link="/admin/payments" isOpen={isOpen} />
+      <SidebarItem icon={Settings} title="Settings" link="/admin/settings" isOpen={isOpen} />
+    </>
+  )}
+</nav>
 
-        <SidebarSection title="BOOKINGS" isOpen={isOpen} />
-        <SidebarItem icon={CalendarCheck} title="Bookings" link="/admin/bookings" isOpen={isOpen} />
-        {/* <SidebarItem icon={MapPin} title="Locations" link="/admin/locations" isOpen={isOpen} /> */}
-
-        <SidebarSection title="SUPPORT & SYSTEM" isOpen={isOpen} />
-        <SidebarItem icon={AlertCircle} title="Issues" link="/admin/issues" isOpen={isOpen} />
-        <SidebarItem icon={TicketPercent} title="Coupons" link="/admin/coupons" isOpen={isOpen} />
-        <SidebarItem icon={Bell} title="Notifications" link="/admin/notifications" isOpen={isOpen} />
-        <SidebarItem icon={DollarSign} title="Payments" link="/admin/payments" isOpen={isOpen} />
-        <SidebarItem icon={Settings} title="Settings" link="/admin/settings" isOpen={isOpen} />
-      </nav>
 
       {/* FOOTER */}
       <div className="p-4 border-t border-gray-700/30 bg-gray-800/50 backdrop-blur-sm">
