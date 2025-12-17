@@ -27,47 +27,39 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const {
-      userName = "",
       bookingId = "",
-      instructorName = "",
-      issueType = "",
+      serviceType = "",
       message = "",
     } = body;
 
-    // ---------------- VALIDATION ----------------
-    if (!userName || !issueType || !message) {
-      return apiResponse(false, "Required fields missing", {});
+    // -------- VALIDATION --------
+    if (!serviceType || !message) {
+      return apiResponse(false, "Service type and message are required", {});
     }
 
-    // ---------------- SAVE ISSUE ----------------
+    // -------- SAVE ISSUE --------
     const issue = await Issue.create({
-      userName,
       bookingId,
-      instructorName,
-      issueType,
+      serviceType,
       message,
       status: "pending",
     });
 
-    // ---------------- WHATSAPP MESSAGE ----------------
+    // -------- WHATSAPP MESSAGE --------
     const text = encodeURIComponent(
-      `🚨 New DrivKaro Issue Report\n\n` +
-        `👤 User: ${userName}\n` +
+      `🚨 New Issue Report\n\n` +
         (bookingId ? `📘 Booking ID: ${bookingId}\n` : "") +
-        (instructorName ? `🧑‍🏫 Instructor: ${instructorName}\n` : "") +
-        `🐞 Issue Type: ${issueType}\n\n` +
-        `📝 Message:\n${message}\n`
+        `🛠 Service Type: ${serviceType}\n\n` +
+        `📝 Message:\n${message}`
     );
 
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
 
-    // ---------------- RESPONSE ----------------
+    // -------- RESPONSE --------
     return apiResponse(true, "Issue submitted successfully", {
       issueId: issue._id?.toString() || "",
-      userName: issue.userName || "",
       bookingId: issue.bookingId || "",
-      instructorName: issue.instructorName || "",
-      issueType: issue.issueType || "",
+      serviceType: issue.serviceType || "",
       message: issue.message || "",
       status: issue.status || "pending",
       createdAt: issue.createdAt || "",
