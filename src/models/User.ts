@@ -1,4 +1,3 @@
-// src/models/User.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IUser extends Document {
@@ -7,11 +6,11 @@ export interface IUser extends Document {
   email?: string;
   gender?: "male" | "female" | "other" | null;
   dob?: Date;
+  profileImage?: string; // ✅ NEW
 
-  // === REFERRAL SYSTEM ===
-  referralCode?: string; // My unique code
-  referredBy?: mongoose.Types.ObjectId | null; // Who referred me
-  usedReferralCode?: string | null; // Which code I used
+  referralCode?: string;
+  referredBy?: mongoose.Types.ObjectId | null;
+  usedReferralCode?: string | null;
 
   walletAmount?: number;
   createdAt: Date;
@@ -22,24 +21,20 @@ const UserSchema: Schema<IUser> = new Schema(
     fullName: { type: String, default: "" },
     mobile: { type: String, required: true, unique: true },
 
-    gender: { type: String, enum: ["male", "female", "other"], default: null },
-
     email: { type: String, default: "" },
+    gender: { type: String, enum: ["male", "female", "other"], default: null },
     dob: { type: Date },
 
-    // === REFERRAL ATTRIBUTES ===
+    profileImage: { type: String, default: "" }, // ✅ NEW
+
     referralCode: { type: String, index: true, unique: true, sparse: true },
     referredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
-    usedReferralCode: { type: String, default: null }, // 👈 NEW
+    usedReferralCode: { type: String, default: null },
 
     walletAmount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );
-
-// === INDEXES (FASTER SEARCH) ===
-UserSchema.index({ mobile: 1 }, { unique: true });
-UserSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
 
 export default mongoose.models.User ||
   mongoose.model<IUser>("User", UserSchema);

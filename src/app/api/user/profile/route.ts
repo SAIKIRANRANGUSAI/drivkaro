@@ -70,13 +70,32 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // === PROFILE COMPLETION CHECK ===
+    const isProfile =
+      Boolean(user.fullName) &&
+      Boolean(user.email) &&
+      Boolean(user.gender) &&
+      Boolean(user.dob);
+
     // === SUCCESS RESPONSE ===
     return NextResponse.json({
       success: true,
       code: "USER_FETCHED",
       message: "User fetched successfully",
       data: {
-        user,
+        user: {
+          id: user._id,
+          fullName: user.fullName,
+          mobile: user.mobile,
+          email: user.email,
+          gender: user.gender,
+          dob: user.dob,
+          profileImage: user.profileImage || null,
+          walletAmount: user.walletAmount,
+          myReferralCode: user.referralCode,
+          usedReferralCode: user.usedReferralCode || null,
+          is_profile: isProfile, // ✅ IMPORTANT
+        },
       },
     });
   } catch (err) {

@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ FIX: accept 4-digit OTP (manual mode)
+    // accept 4-digit OTP (manual mode)
     if (!/^\d{4}$/.test(otp)) {
       return NextResponse.json(
         { success: false, message: "Invalid OTP format" },
@@ -95,6 +95,7 @@ export async function POST(req: Request) {
     // FIND OR CREATE USER
     // =========================
     let user = await User.findOne({ mobile });
+    let isProfile = true; // 👈 NEW FLAG
 
     if (!user) {
       const referralCode = await generateUniqueReferralCode();
@@ -103,6 +104,7 @@ export async function POST(req: Request) {
         referralCode,
         walletAmount: 0,
       });
+      isProfile = false; // 👈 new user
     } else if (!user.referralCode) {
       user.referralCode = await generateUniqueReferralCode();
       await user.save();
@@ -146,6 +148,7 @@ export async function POST(req: Request) {
             myReferralCode: user.referralCode,
             usedReferralCode,
             walletAmount: user.walletAmount || 0,
+            is_profile: isProfile, // ✅ ADDED
           },
           accessToken,
         },

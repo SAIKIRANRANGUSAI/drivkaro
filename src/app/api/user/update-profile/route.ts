@@ -1,5 +1,3 @@
-// src/app/api/user/update-profile/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
@@ -16,9 +14,31 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     const body = await req.json();
 
+    let { fullName, email, gender, dob, usedReferralCode } = body;
+
+    // ================= REQUIRED FIELDS =================
+    if (!fullName || !email || !gender || !dob) {
+      return NextResponse.json({
+        success: false,
+        code: "REQUIRED_FIELDS_MISSING",
+        message: "fullName, email, gender and dob are required",
+        data: null,
+      });
+    }
+
+    // ================= NORMALIZE & VALIDATE GENDER =================
+    gender = String(gender).toLowerCase();
+    if (!["male", "female", "other"].includes(gender)) {
+      return NextResponse.json({
+        success: false,
+        code: "INVALID_GENDER",
+        message: "Gender must be male, female or other",
+        data: null,
+      });
+    }
+
     // ================= AUTH =================
     const authHeader = req.headers.get("authorization");
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({
         success: false,
@@ -54,15 +74,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ================= UPDATE PROFILE =================
-    if (typeof body.fullName === "string") user.fullName = body.fullName;
-    if (typeof body.email === "string") user.email = body.email;
-    if (typeof body.gender === "string") user.gender = body.gender;
+    user.fullName = fullName.trim();
+    user.email = email.trim();
+    user.gender = gender;
+    user.dob = new Date(dob);
 
-    // ================= REFERRAL =================
-    const referralCodeToApply = body.usedReferralCode?.trim();
+    // ================= REFERRAL (IGNORE EMPTY STRING) =================
+    const referralCodeToApply =
+      typeof usedReferralCode === "string" && usedReferralCode.trim()
+        ? usedReferralCode.trim()
+        : null;
 
     if (referralCodeToApply) {
-      // Already applied
       if (user.usedReferralCode) {
         return NextResponse.json({
           success: false,
@@ -72,7 +95,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Find referrer
       const referrer = await User.findOne({
         referralCode: referralCodeToApply,
       });
@@ -86,7 +108,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Self referral check
       if (String(referrer._id) === String(user._id)) {
         return NextResponse.json({
           success: false,
@@ -96,7 +117,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Save referral info
       user.referredBy = referrer._id;
       user.usedReferralCode = referralCodeToApply;
 
@@ -116,9 +136,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       code: "PROFILE_UPDATED",
-      message: referralCodeToApply
-        ? "Referral applied & profile updated successfully"
-        : "Profile updated successfully",
+      message: "Profile updated successfully",
       data: {
         user: {
           id: user._id,
@@ -126,10 +144,12 @@ export async function POST(req: NextRequest) {
           mobile: user.mobile,
           email: user.email,
           gender: user.gender,
+          dob: user.dob,
           walletAmount: user.walletAmount,
           myReferralCode: user.referralCode,
           usedReferralCode: user.usedReferralCode || null,
         },
+        is_profile: true,
       },
     });
   } catch (err: any) {
@@ -138,7 +158,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: false,
       code: "SERVER_ERROR",
-      message: "Something went wrong",
+      message: err.message || "Something went wrong",
       data: null,
     });
   }
