@@ -9,7 +9,6 @@ import {
   Briefcase,
   CarFront,
   CalendarCheck,
-  MapPin,
   TicketPercent,
   Bell,
   DollarSign,
@@ -19,11 +18,11 @@ import {
   ChevronRight,
   LogOut,
   Mail,
-  UserCircle,
+  Image, // Added for Banners
+  Tag,   // Added for Pricing
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Swal from "sweetalert2";
-// import { LogOut } from "lucide-react";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -69,7 +68,6 @@ function SidebarSkeleton({ isOpen }: { isOpen: boolean }) {
   );
 }
 
-
 export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
   const [logo, setLogo] = useState<LogoData>({ logoUrl: "" });
   const [loadingLogo, setLoadingLogo] = useState(true);
@@ -84,11 +82,10 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
     } catch (error) {
       console.error("Failed to fetch logo:", error);
     } finally {
-  requestAnimationFrame(() => {
-    setLoadingLogo(false);
-  });
-}
-
+      requestAnimationFrame(() => {
+        setLoadingLogo(false);
+      });
+    }
   }
 
   useEffect(() => {
@@ -160,8 +157,8 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="absolute -right-3 top-1/2 -translate-y-1/2 bg-gray-700/50 border border-gray-600/50 
-                     p-2.5 rounded-full shadow-xl hover:bg-amber-500/20 hover:border-amber-400/50 transition-all duration-500 ease-out 
-                     text-gray-300 hover:text-amber-300 flex items-center justify-center hover:scale-110 active:scale-95"
+                      p-2.5 rounded-full shadow-xl hover:bg-amber-500/20 hover:border-amber-400/50 transition-all duration-500 ease-out 
+                      text-gray-300 hover:text-amber-300 flex items-center justify-center hover:scale-110 active:scale-95"
           title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
           {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
@@ -170,35 +167,40 @@ export default function AdminSidebar({ isOpen, setIsOpen }: SidebarProps) {
 
       {/* NAVIGATION SCROLL AREA */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-6 space-y-2 hide-scrollbar">
-  {loadingLogo ? (
-    <SidebarSkeleton isOpen={isOpen} />
-  ) : (
-    <>
-      <SidebarSection title="MAIN" isOpen={isOpen} />
-      <SidebarItem icon={LayoutDashboard} title="Dashboard" link="/admin" isOpen={isOpen} />
+        {loadingLogo ? (
+          <SidebarSkeleton isOpen={isOpen} />
+        ) : (
+          <>
+            <SidebarSection title="MAIN" isOpen={isOpen} />
+            <SidebarItem icon={LayoutDashboard} title="Dashboard" link="/admin" isOpen={isOpen} />
 
-      <SidebarSection title="USER MANAGEMENT" isOpen={isOpen} />
-      <SidebarItem icon={Users} title="Users" link="/admin/users" isOpen={isOpen} />
-      <SidebarItem icon={Wallet} title="Wallet & Referrals" link="/admin/wallet" isOpen={isOpen} />
-      <SidebarItem icon={Award} title="License Requests" link="/admin/license" isOpen={isOpen} />
+            <SidebarSection title="USER MANAGEMENT" isOpen={isOpen} />
+            <SidebarItem icon={Users} title="Users" link="/admin/users" isOpen={isOpen} />
+            <SidebarItem icon={Wallet} title="Wallet & Referrals" link="/admin/wallet" isOpen={isOpen} />
+            <SidebarItem icon={Award} title="License Requests" link="/admin/license" isOpen={isOpen} />
 
-      <SidebarSection title="DRIVERS" isOpen={isOpen} />
-      <SidebarItem icon={CarFront} title="Drivers" link="/admin/drivers" isOpen={isOpen} />
-      <SidebarItem icon={Briefcase} title="Driver Verification" link="/admin/drivers/verification" isOpen={isOpen} />
+            <SidebarSection title="DRIVERS" isOpen={isOpen} />
+            <SidebarItem icon={CarFront} title="Drivers" link="/admin/drivers" isOpen={isOpen} />
+            <SidebarItem icon={Briefcase} title="Driver Verification" link="/admin/drivers/verification" isOpen={isOpen} />
 
-      <SidebarSection title="BOOKINGS" isOpen={isOpen} />
-      <SidebarItem icon={CalendarCheck} title="Bookings" link="/admin/bookings" isOpen={isOpen} />
+            <SidebarSection title="BOOKINGS" isOpen={isOpen} />
+            <SidebarItem icon={CalendarCheck} title="Bookings" link="/admin/bookings" isOpen={isOpen} />
 
-      <SidebarSection title="SUPPORT & SYSTEM" isOpen={isOpen} />
-      <SidebarItem icon={AlertCircle} title="Issues" link="/admin/issues" isOpen={isOpen} />
-      <SidebarItem icon={TicketPercent} title="Coupons" link="/admin/coupons" isOpen={isOpen} />
-      <SidebarItem icon={Bell} title="Notifications" link="/admin/notifications" isOpen={isOpen} />
-      <SidebarItem icon={DollarSign} title="Payments" link="/admin/payments" isOpen={isOpen} />
-      <SidebarItem icon={Settings} title="Settings" link="/admin/settings" isOpen={isOpen} />
-    </>
-  )}
-</nav>
+            {/* --- NEW SECTION FOR BANNERS & PRICING --- */}
+            <SidebarSection title="CONTENT & FLEET" isOpen={isOpen} />
+            <SidebarItem icon={Image} title="Banners" link="/admin/banners" isOpen={isOpen} />
+            <SidebarItem icon={Tag} title="Pricing" link="/admin/pricing" isOpen={isOpen} />
+            {/* ----------------------------------------- */}
 
+            <SidebarSection title="SUPPORT & SYSTEM" isOpen={isOpen} />
+            <SidebarItem icon={AlertCircle} title="Issues" link="/admin/issues" isOpen={isOpen} />
+            <SidebarItem icon={TicketPercent} title="Coupons" link="/admin/coupons" isOpen={isOpen} />
+            <SidebarItem icon={Bell} title="Notifications" link="/admin/notifications" isOpen={isOpen} />
+            <SidebarItem icon={DollarSign} title="Payments" link="/admin/payments" isOpen={isOpen} />
+            <SidebarItem icon={Settings} title="Settings" link="/admin/settings" isOpen={isOpen} />
+          </>
+        )}
+      </nav>
 
       {/* FOOTER */}
       <div className="p-4 border-t border-gray-700/30 bg-gray-800/50 backdrop-blur-sm">
@@ -370,4 +372,3 @@ function LogoutButton() {
     </button>
   );
 }
-
