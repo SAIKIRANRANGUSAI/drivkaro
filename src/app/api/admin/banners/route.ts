@@ -9,11 +9,9 @@ export async function GET() {
   try {
     // ✅ Always await DB first
     await connectDB();
-
     const banners = await Banner.find({})
       .sort({ index: 1 })
       .lean();
-
     return NextResponse.json(
       {
         success: true,
@@ -24,14 +22,13 @@ export async function GET() {
     );
   } catch (error) {
     console.error("GET /api/admin/banners ERROR:", error);
-
     return NextResponse.json(
       {
         success: false,
         message: "Failed to fetch banners",
         data: [],
       },
-      { status: 200 }
+      { status: 500 }  // Changed to 500 for server errors
     );
   }
 }
@@ -41,41 +38,36 @@ export async function GET() {
 ============================ */
 export async function POST(req: Request) {
   try {
-    // ✅ 1. Ensure DB connection (this is enough)
     await connectDB();
-
-    // ✅ 2. Parse request body safely
     const body = await req.json();
-    console.log("📥 Incoming banner payload:", body);
+    console.log("📥 Incoming banner payload:", body);  // Keep for debugging
 
     const index = Number(body.index);
     const image = body.image?.trim();
     const link = body.link?.trim() || "";
     const active = body.active ?? true;
 
-    // ✅ 3. Strong validation
-    if (Number.isNaN(index) || !image) {
+    // Strong validation
+    if (Number.isNaN(index) || index < 0 || !image || !image.startsWith('http')) {  // Basic URL check
+      console.log("❌ Validation failed: index=", index, "image=", !!image);  // Debug log
       return NextResponse.json(
         {
           success: false,
-          message: "Valid index and image are required",
+          message: "Valid index (number >= 0) and image URL are required",
           data: {},
         },
-        { status: 200 }
+        { status: 400 }  // Client error
       );
     }
 
-    // ✅ 4. Create banner
     const banner = await Banner.create({
       index,
       image,
       link,
       active,
     });
-
     console.log("✅ Banner stored in DB with ID:", banner._id.toString());
 
-    // ✅ 5. Success response
     return NextResponse.json(
       {
         success: true,
@@ -89,19 +81,17 @@ export async function POST(req: Request) {
           createdAt: banner.createdAt,
         },
       },
-      { status: 200 }
+      { status: 201 }  // Created
     );
   } catch (error: any) {
     console.error("❌ POST /api/admin/banners ERROR:", error);
-
     return NextResponse.json(
       {
         success: false,
         message: error?.message || "Failed to create banner",
         data: {},
       },
-      { status: 200 }
+      { status: 500 }  // Server error
     );
   }
 }
-
