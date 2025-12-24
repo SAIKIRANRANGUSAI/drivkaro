@@ -93,8 +93,10 @@ const BookingDaySchema = new Schema<IBookingDay>(
       default: null,
     },
     instructorName: { type: String, default: null },
+    instructorImage: { type: String, default: null },
     instructorPhone: { type: String, default: null },
-
+    instructorVehicleNumber: { type: String, default: null },
+    
     startedAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },
   },
