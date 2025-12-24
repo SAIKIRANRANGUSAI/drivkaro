@@ -123,7 +123,9 @@ export async function POST(
       ...day,
       instructorId: instructor._id,
       instructorName: instructor.fullName || "",
+      instructorImage: instructor.idProofUrl || "",
       instructorPhone: instructor.mobile || "",
+      instructorVehicleNumber: instructor.vehicleNumber || "",
     }));
 
     await booking.save();
