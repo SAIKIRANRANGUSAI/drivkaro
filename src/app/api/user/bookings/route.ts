@@ -272,7 +272,6 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
 import Pricing from "@/models/Pricing";
-import Coupon from "@/models/Coupon";
 import User from "@/models/User";
 import { sendPushNotification } from "@/lib/sendNotification";
 import { verifyAccessToken } from "@/lib/jwt";
@@ -361,7 +360,7 @@ export async function POST(req: Request) {
     await connectDB();
     const body = await req.json();
 
-    // ================= USER (FROM ACCESS TOKEN) =================
+    // ================= USER =================
     const userId = getUserIdFromToken(req);
     if (!userId) {
       return NextResponse.json({
@@ -447,27 +446,6 @@ export async function POST(req: Request) {
     const gst = Math.round((amount * gstPercent) / 100);
     let finalAmount = amount + gst;
 
-    // ================= COUPON =================
-    let discount = 0;
-
-    if (body.couponCode) {
-      const coupon = await Coupon.findOne({
-        code: body.couponCode.trim().toUpperCase(),
-        active: true,
-        from: { $lte: new Date() },
-        to: { $gte: new Date() },
-      });
-
-      if (coupon && amount >= coupon.minAmount) {
-        discount = coupon.isPercent
-          ? Math.round((amount * coupon.amount) / 100)
-          : coupon.amount;
-
-        if (discount > coupon.maxDiscount) discount = coupon.maxDiscount;
-        finalAmount -= discount;
-      }
-    }
-
     // ================= WALLET =================
     const walletUsed = Number(body.walletUsed || 0);
     finalAmount -= walletUsed;
@@ -494,11 +472,11 @@ export async function POST(req: Request) {
 
       amount,
       gst,
-      discount,
+      discount: 0,        // ✅ kept for schema safety
       walletUsed,
       totalAmount: finalAmount,
 
-      couponCode: body.couponCode || null,
+      couponCode: null,   // ✅ coupon removed
       bookedFor,
       otherUserId,
 
