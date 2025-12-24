@@ -12,7 +12,10 @@ export interface IBookingDay {
 
   instructorId?: mongoose.Types.ObjectId | null;
   instructorName?: string | null;
+  instructorImage?: string | null;
+  instructorVehicleNumber?: string | null;
   instructorPhone?: string | null;
+
 
   startedAt?: Date | null;
   completedAt?: Date | null;
