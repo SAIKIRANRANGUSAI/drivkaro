@@ -267,7 +267,6 @@
 // }
 
 
-
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
@@ -296,7 +295,7 @@ function getUserIdFromToken(req: Request) {
 
 /* ======================================================
    GET USER BOOKINGS
-   GET /api/user/bookings?status=completed
+   GET /api/user/bookings?status=ongoing|completed|pending|cancelled
 ====================================================== */
 export async function GET(req: NextRequest) {
   try {
@@ -313,55 +312,34 @@ export async function GET(req: NextRequest) {
     }
 
     const status = req.nextUrl.searchParams.get("status");
-    const allowedStatuses = ["pending", "ongoing", "completed", "cancelled"];
 
-    const query: any = { userId };
-
-    // if (status) {
-    //   if (!allowedStatuses.includes(status)) {
-    //     return NextResponse.json({
-    //       success: false,
-    //       code: "INVALID_STATUS",
-    //       message: "Invalid booking status",
-    //       data: { bookings: [] },
-    //     });
-    //   }
-    //   query.status = status;
-    // }
-
+    // 🔹 Always fetch all user bookings first
     let bookings = await Booking.find({ userId })
-  .sort({ createdAt: -1 })
-  .lean();
-
-if (status === "ongoing") {
-  bookings = bookings.filter(b =>
-    b.days?.some(d => d.status !== "completed")
-  );
-}
-
-if (status === "completed") {
-  bookings = bookings.filter(b =>
-    b.days?.length > 0 &&
-    b.days.every(d => d.status === "completed")
-  );
-}
-
-if (status === "pending") {
-  bookings = bookings.filter(b =>
-    b.status === "pending"
-  );
-}
-
-if (status === "cancelled") {
-  bookings = bookings.filter(b =>
-    b.status === "cancelled"
-  );
-}
-
-
-    const bookings = await Booking.find(query)
       .sort({ createdAt: -1 })
       .lean();
+
+    // 🔹 App-based filtering
+    if (status === "ongoing") {
+      bookings = bookings.filter(
+        (b) => b.days?.some((d: any) => d.status !== "completed")
+      );
+    }
+
+    if (status === "completed") {
+      bookings = bookings.filter(
+        (b) =>
+          b.days?.length > 0 &&
+          b.days.every((d: any) => d.status === "completed")
+      );
+    }
+
+    if (status === "pending") {
+      bookings = bookings.filter((b) => b.status === "pending");
+    }
+
+    if (status === "cancelled") {
+      bookings = bookings.filter((b) => b.status === "cancelled");
+    }
 
     return NextResponse.json({
       success: true,
@@ -390,7 +368,6 @@ export async function POST(req: Request) {
     await connectDB();
     const body = await req.json();
 
-    // ================= USER =================
     const userId = getUserIdFromToken(req);
     if (!userId) {
       return NextResponse.json({
@@ -401,7 +378,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // ================= REQUIRED FIELDS =================
     const required = [
       "pickupLocation",
       "startDate",
@@ -421,7 +397,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // ================= PICKUP =================
     const pickup = body.pickupLocation;
     if (!pickup?.name || pickup.lat == null || pickup.lng == null) {
       return NextResponse.json({
@@ -434,7 +409,6 @@ export async function POST(req: Request) {
 
     const dropLocation = body.dropLocation || pickup;
 
-    // ================= PRICING =================
     const pricing = await Pricing.findOne({ carType: body.carType });
     if (!pricing) {
       return NextResponse.json({
@@ -448,7 +422,6 @@ export async function POST(req: Request) {
     const pricePerDay = pricing.pricePerDay;
     const gstPercent = pricing.gstPercent || 18;
 
-    // ================= DAYS =================
     const days: any[] = [];
     let current = new Date(body.startDate);
     const end = new Date(body.endDate);
@@ -464,59 +437,46 @@ export async function POST(req: Request) {
         endOtp: generateOtp(),
         instructorId: null,
       });
-
       current.setDate(current.getDate() + 1);
       dayNo++;
     }
 
     const daysCount = days.length;
-
-    // ================= AMOUNT =================
     const amount = pricePerDay * daysCount;
     const gst = Math.round((amount * gstPercent) / 100);
     let finalAmount = amount + gst;
 
-    // ================= WALLET =================
     const walletUsed = Number(body.walletUsed || 0);
     finalAmount -= walletUsed;
     if (finalAmount < 0) finalAmount = 0;
 
-    // ================= BOOKED FOR =================
     const bookedFor = body.bookedFor || "self";
     const otherUserId = bookedFor === "other" ? body.otherUserId : null;
 
-    // ================= CREATE =================
     const booking = await Booking.create({
       userId,
       bookingId: "BK" + Math.floor(100000 + Math.random() * 900000),
-
       pickupLocation: pickup,
       dropLocation,
-
       carType: body.carType,
       pricePerDay,
       slotTime: body.slotTime,
-
       daysCount,
       days,
-
       amount,
       gst,
-      discount: 0,        // ✅ kept for schema safety
+      discount: 0,
       walletUsed,
       totalAmount: finalAmount,
-
-      couponCode: null,   // ✅ coupon removed
+      couponCode: null,
       bookedFor,
       otherUserId,
-
       paid: false,
       assignedInstructorId: null,
       assignedGender: null,
       status: "pending",
     });
 
-    // ================= NOTIFICATION =================
     const user = await User.findById(userId);
     if (user?.fcmToken) {
       await sendPushNotification(
