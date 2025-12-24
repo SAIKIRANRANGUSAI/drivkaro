@@ -20,6 +20,8 @@ export interface IBookingDay extends Document {
   instructorId?: mongoose.Types.ObjectId | null;
   instructorName?: string | null;
   instructorPhone?: string | null;
+  instructorImage?: string | null;
+  instructorVehicleNumber?: string | null;
 }
 
 const BookingDaySchema = new Schema<IBookingDay>(
@@ -56,6 +58,8 @@ const BookingDaySchema = new Schema<IBookingDay>(
     },
     instructorName: { type: String, default: null },
     instructorPhone: { type: String, default: null },
+    instructorImage: { type: String, default: null },
+    instructorVehicleNumber: { type: String, default: null },
   },
   { timestamps: true }
 );
