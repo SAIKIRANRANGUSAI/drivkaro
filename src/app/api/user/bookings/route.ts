@@ -267,6 +267,244 @@
 // }
 
 
+// import { NextRequest, NextResponse } from "next/server";
+// import connectDB from "@/lib/mongoose";
+// import Booking from "@/models/Booking";
+// import Pricing from "@/models/Pricing";
+// import User from "@/models/User";
+// import { sendPushNotification } from "@/lib/sendNotification";
+// import { verifyAccessToken } from "@/lib/jwt";
+
+// function generateOtp() {
+//   return Math.floor(1000 + Math.random() * 9000).toString();
+// }
+
+// // ================= HELPER =================
+// function getUserIdFromToken(req: Request) {
+//   const authHeader = req.headers.get("authorization");
+//   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+
+//   try {
+//     const token = authHeader.split(" ")[1];
+//     const decoded: any = verifyAccessToken(token);
+//     return decoded.userId;
+//   } catch {
+//     return null;
+//   }
+// }
+
+// /* ======================================================
+//    GET USER BOOKINGS
+//    GET /api/user/bookings?status=ongoing|completed|pending|cancelled
+// ====================================================== */
+// export async function GET(req: NextRequest) {
+//   try {
+//     await connectDB();
+
+//     const userId = getUserIdFromToken(req);
+//     if (!userId) {
+//       return NextResponse.json({
+//         success: false,
+//         code: "UNAUTHORIZED",
+//         message: "Invalid or missing access token",
+//         data: { bookings: [] },
+//       });
+//     }
+
+//     const status = req.nextUrl.searchParams.get("status");
+
+//     // 🔹 Always fetch all user bookings first
+//     let bookings = await Booking.find({ userId })
+//       .sort({ createdAt: -1 })
+//       .lean();
+
+//     // 🔹 App-based filtering
+//     if (status === "ongoing") {
+//       bookings = bookings.filter(
+//         (b) => b.days?.some((d: any) => d.status !== "completed")
+//       );
+//     }
+
+//     if (status === "completed") {
+//       bookings = bookings.filter(
+//         (b) =>
+//           b.days?.length > 0 &&
+//           b.days.every((d: any) => d.status === "completed")
+//       );
+//     }
+
+//     if (status === "pending") {
+//       bookings = bookings.filter((b) => b.status === "pending");
+//     }
+
+//     if (status === "cancelled") {
+//       bookings = bookings.filter((b) => b.status === "cancelled");
+//     }
+
+//     return NextResponse.json({
+//       success: true,
+//       code: "BOOKINGS_FETCHED",
+//       message: "Bookings fetched successfully",
+//       data: { bookings },
+//     });
+//   } catch (error) {
+//     console.error("BOOKINGS GET ERROR:", error);
+
+//     return NextResponse.json({
+//       success: false,
+//       code: "SERVER_ERROR",
+//       message: "Server error",
+//       data: { bookings: [] },
+//     });
+//   }
+// }
+
+// /* ======================================================
+//    CREATE BOOKING
+//    POST /api/user/bookings
+// ====================================================== */
+// export async function POST(req: Request) {
+//   try {
+//     await connectDB();
+//     const body = await req.json();
+
+//     const userId = getUserIdFromToken(req);
+//     if (!userId) {
+//       return NextResponse.json({
+//         success: false,
+//         code: "UNAUTHORIZED",
+//         message: "Invalid or missing access token",
+//         data: {},
+//       });
+//     }
+
+//     const required = [
+//       "pickupLocation",
+//       "startDate",
+//       "endDate",
+//       "carType",
+//       "slotTime",
+//     ];
+
+//     for (const field of required) {
+//       if (!body[field]) {
+//         return NextResponse.json({
+//           success: false,
+//           code: "FIELD_MISSING",
+//           message: `${field} is required`,
+//           data: {},
+//         });
+//       }
+//     }
+
+//     const pickup = body.pickupLocation;
+//     if (!pickup?.name || pickup.lat == null || pickup.lng == null) {
+//       return NextResponse.json({
+//         success: false,
+//         code: "INVALID_PICKUP_LOCATION",
+//         message: "pickupLocation must have name, lat, lng",
+//         data: {},
+//       });
+//     }
+
+//     const dropLocation = body.dropLocation || pickup;
+
+//     const pricing = await Pricing.findOne({ carType: body.carType });
+//     if (!pricing) {
+//       return NextResponse.json({
+//         success: false,
+//         code: "PRICING_NOT_FOUND",
+//         message: "Pricing not found for this car type",
+//         data: {},
+//       });
+//     }
+
+//     const pricePerDay = pricing.pricePerDay;
+//     const gstPercent = pricing.gstPercent || 18;
+
+//     const days: any[] = [];
+//     let current = new Date(body.startDate);
+//     const end = new Date(body.endDate);
+//     let dayNo = 1;
+
+//     while (current <= end) {
+//       days.push({
+//         dayNo,
+//         date: current.toISOString().split("T")[0],
+//         slot: body.slotTime,
+//         status: "pending",
+//         startOtp: generateOtp(),
+//         endOtp: generateOtp(),
+//         instructorId: null,
+//       });
+//       current.setDate(current.getDate() + 1);
+//       dayNo++;
+//     }
+
+//     const daysCount = days.length;
+//     const amount = pricePerDay * daysCount;
+//     const gst = Math.round((amount * gstPercent) / 100);
+//     let finalAmount = amount + gst;
+
+//     const walletUsed = Number(body.walletUsed || 0);
+//     finalAmount -= walletUsed;
+//     if (finalAmount < 0) finalAmount = 0;
+
+//     const bookedFor = body.bookedFor || "self";
+//     const otherUserId = bookedFor === "other" ? body.otherUserId : null;
+
+//     const booking = await Booking.create({
+//       userId,
+//       bookingId: "BK" + Math.floor(100000 + Math.random() * 900000),
+//       pickupLocation: pickup,
+//       dropLocation,
+//       carType: body.carType,
+//       pricePerDay,
+//       slotTime: body.slotTime,
+//       daysCount,
+//       days,
+//       amount,
+//       gst,
+//       discount: 0,
+//       walletUsed,
+//       totalAmount: finalAmount,
+//       couponCode: null,
+//       bookedFor,
+//       otherUserId,
+//       paid: false,
+//       assignedInstructorId: null,
+//       assignedGender: null,
+//       status: "pending",
+//     });
+
+//     const user = await User.findById(userId);
+//     if (user?.fcmToken) {
+//       await sendPushNotification(
+//         user.fcmToken,
+//         "Booking Created 🎉",
+//         `Your booking ${booking.bookingId} has been created successfully.`
+//       );
+//     }
+
+//     return NextResponse.json({
+//       success: true,
+//       code: "BOOKING_CREATED",
+//       message: "Booking created successfully",
+//       data: booking,
+//     });
+//   } catch (error) {
+//     console.error("BOOKING POST ERROR:", error);
+
+//     return NextResponse.json({
+//       success: false,
+//       code: "SERVER_ERROR",
+//       message: "Server error",
+//       data: {},
+//     });
+//   }
+// }
+
+
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
@@ -275,11 +513,6 @@ import User from "@/models/User";
 import { sendPushNotification } from "@/lib/sendNotification";
 import { verifyAccessToken } from "@/lib/jwt";
 
-function generateOtp() {
-  return Math.floor(1000 + Math.random() * 9000).toString();
-}
-
-// ================= HELPER =================
 function getUserIdFromToken(req: Request) {
   const authHeader = req.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
@@ -295,50 +528,46 @@ function getUserIdFromToken(req: Request) {
 
 /* ======================================================
    GET USER BOOKINGS
-   GET /api/user/bookings?status=ongoing|completed|pending|cancelled
+   GET /api/user/bookings?status=ongoing|completed
 ====================================================== */
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
     const userId = getUserIdFromToken(req);
-    if (!userId) {
+    if (!userId)
       return NextResponse.json({
         success: false,
         code: "UNAUTHORIZED",
         message: "Invalid or missing access token",
         data: { bookings: [] },
       });
-    }
 
     const status = req.nextUrl.searchParams.get("status");
 
-    // 🔹 Always fetch all user bookings first
+    // Always fetch all bookings
     let bookings = await Booking.find({ userId })
       .sort({ createdAt: -1 })
       .lean();
 
-    // 🔹 App-based filtering
+    // ONGOING → any pending OR skipped day
     if (status === "ongoing") {
-      bookings = bookings.filter(
-        (b) => b.days?.some((d: any) => d.status !== "completed")
+      bookings = bookings.filter((b: any) =>
+        b.days?.some(
+          (d: any) => d.status === "pending" || d.status === "skipped"
+        )
       );
     }
 
+    // COMPLETED → all days are completed OR skipped
     if (status === "completed") {
-      bookings = bookings.filter(
-        (b) =>
-          b.days?.length > 0 &&
-          b.days.every((d: any) => d.status === "completed")
+      bookings = bookings.filter((b: any) =>
+        b.days?.length > 0 &&
+        b.days.every(
+          (d: any) =>
+            d.status === "completed" || d.status === "skipped"
+        )
       );
-    }
-
-    if (status === "pending") {
-      bookings = bookings.filter((b) => b.status === "pending");
-    }
-
-    if (status === "cancelled") {
-      bookings = bookings.filter((b) => b.status === "cancelled");
     }
 
     return NextResponse.json({
@@ -362,6 +591,7 @@ export async function GET(req: NextRequest) {
 /* ======================================================
    CREATE BOOKING
    POST /api/user/bookings
+   👉 Only one ongoing booking allowed
 ====================================================== */
 export async function POST(req: Request) {
   try {
@@ -369,15 +599,34 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const userId = getUserIdFromToken(req);
-    if (!userId) {
+    if (!userId)
       return NextResponse.json({
         success: false,
         code: "UNAUTHORIZED",
         message: "Invalid or missing access token",
         data: {},
       });
+
+    // 🔒 Block if user already has ONGOING booking
+    const activeBooking = await Booking.findOne({ userId }).lean();
+
+    if (activeBooking) {
+      const stillOngoing = activeBooking.days.some(
+        (d: any) => d.status === "pending" || d.status === "skipped"
+      );
+
+      if (stillOngoing) {
+        return NextResponse.json({
+          success: false,
+          code: "ONGOING_BOOKING_EXISTS",
+          message:
+            "You already have an ongoing booking. Please complete or cancel it before creating a new one.",
+          data: {},
+        });
+      }
     }
 
+    // -------- Required Fields ----------
     const required = [
       "pickupLocation",
       "startDate",
@@ -410,18 +659,18 @@ export async function POST(req: Request) {
     const dropLocation = body.dropLocation || pickup;
 
     const pricing = await Pricing.findOne({ carType: body.carType });
-    if (!pricing) {
+    if (!pricing)
       return NextResponse.json({
         success: false,
         code: "PRICING_NOT_FOUND",
         message: "Pricing not found for this car type",
         data: {},
       });
-    }
 
     const pricePerDay = pricing.pricePerDay;
     const gstPercent = pricing.gstPercent || 18;
 
+    // ---------- CREATE DAYS (NO OTP HERE ❌) ----------
     const days: any[] = [];
     let current = new Date(body.startDate);
     const end = new Date(body.endDate);
@@ -433,15 +682,17 @@ export async function POST(req: Request) {
         date: current.toISOString().split("T")[0],
         slot: body.slotTime,
         status: "pending",
-        startOtp: generateOtp(),
-        endOtp: generateOtp(),
         instructorId: null,
+        startOtp: null,
+        endOtp: null,
       });
+
       current.setDate(current.getDate() + 1);
       dayNo++;
     }
 
     const daysCount = days.length;
+
     const amount = pricePerDay * daysCount;
     const gst = Math.round((amount * gstPercent) / 100);
     let finalAmount = amount + gst;
