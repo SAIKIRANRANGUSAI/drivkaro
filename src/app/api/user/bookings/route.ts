@@ -317,17 +317,47 @@ export async function GET(req: NextRequest) {
 
     const query: any = { userId };
 
-    if (status) {
-      if (!allowedStatuses.includes(status)) {
-        return NextResponse.json({
-          success: false,
-          code: "INVALID_STATUS",
-          message: "Invalid booking status",
-          data: { bookings: [] },
-        });
-      }
-      query.status = status;
-    }
+    // if (status) {
+    //   if (!allowedStatuses.includes(status)) {
+    //     return NextResponse.json({
+    //       success: false,
+    //       code: "INVALID_STATUS",
+    //       message: "Invalid booking status",
+    //       data: { bookings: [] },
+    //     });
+    //   }
+    //   query.status = status;
+    // }
+
+    let bookings = await Booking.find({ userId })
+  .sort({ createdAt: -1 })
+  .lean();
+
+if (status === "ongoing") {
+  bookings = bookings.filter(b =>
+    b.days?.some(d => d.status !== "completed")
+  );
+}
+
+if (status === "completed") {
+  bookings = bookings.filter(b =>
+    b.days?.length > 0 &&
+    b.days.every(d => d.status === "completed")
+  );
+}
+
+if (status === "pending") {
+  bookings = bookings.filter(b =>
+    b.status === "pending"
+  );
+}
+
+if (status === "cancelled") {
+  bookings = bookings.filter(b =>
+    b.status === "cancelled"
+  );
+}
+
 
     const bookings = await Booking.find(query)
       .sort({ createdAt: -1 })
