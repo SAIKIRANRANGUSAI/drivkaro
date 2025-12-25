@@ -1,62 +1,91 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Review from "@/models/Review";
+import Booking from "@/models/Booking";
+import { verifyAccessToken } from "@/lib/jwt";
+
+function apiResponse(success: boolean, message: string, data: any = {}) {
+  return NextResponse.json({ success, message, data }, { status: 200 });
+}
+
+// 🔹 Extract userId from token
+function getUserIdFromToken(req: Request) {
+  const h = req.headers.get("authorization");
+  if (!h?.startsWith("Bearer ")) return null;
+
+  try {
+    const decoded = verifyAccessToken(h.split(" ")[1]) as any;
+    return decoded?.userId || null;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
 
-    const body = await req.json();
+    const userId = getUserIdFromToken(req);
+    if (!userId) return apiResponse(false, "Unauthorized — invalid token");
 
-    const {
-      bookingId = "",
-      userId = "",
-      driverId = "",
-      rating,
-      message = "",
-    } = body;
+    const { rating, message = "" } = await req.json();
 
-    // 🔍 Validation
-    if (!userId || !driverId || !rating) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Required fields missing",
-          data: null,
-        },
-        { status: 200 }
-      );
+    if (!rating) {
+      return apiResponse(false, "Rating is required");
     }
 
-    // 💾 Save review
-    const review = await Review.create({
-      bookingId,
+    // 🔹 Get latest completed / ongoing booking
+    const booking = await Booking.findOne({
       userId,
-      driverId,
+      assignedInstructorId: { $exists: true },
+      status: { $in: ["ongoing", "completed"] }
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!booking) {
+      return apiResponse(false, "No booking found to review");
+    }
+
+    if (!booking.assignedInstructorId) {
+      return apiResponse(false, "Instructor not assigned");
+    }
+
+    // 🔹 Prevent duplicate review
+    const existing = await Review.findOne({
+      bookingId: booking.bookingId,
+      userId
+    });
+
+    if (existing) {
+      return apiResponse(true, "Review already submitted", {
+        reviewId: existing._id.toString(),
+        rating: existing.rating,
+        message: existing.message,
+      });
+    }
+
+    // 🔹 Save Review
+    const review = await Review.create({
+      bookingId: booking.bookingId,
+      userId,
+      driverId: booking.assignedInstructorId,
       rating,
       message,
       status: "success",
     });
 
-    // ✅ Success response
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Review submitted successfully",
-        data: review,
-      },
-      { status: 200 }
-    );
-  } catch (error: any) {
-    console.error("Review API Error:", error);
+    return apiResponse(true, "Review submitted successfully", {
+      reviewId: review._id.toString(),
+      bookingId: review.bookingId,
+      driverId: review.driverId,
+      rating: review.rating,
+      message: review.message,
+      createdAt: review.createdAt
+    });
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Internal server error",
-        data: null,
-      },
-      { status: 200 }
-    );
+  } catch (err) {
+    console.error("REVIEW API ERROR:", err);
+    return apiResponse(false, "Server error");
   }
 }

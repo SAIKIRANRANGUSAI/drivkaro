@@ -1,54 +1,80 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import LicenseRequest from "@/models/DrivingLicenseRequest";
+import Booking from "@/models/Booking";
+import { verifyAccessToken } from "@/lib/jwt";
 
-// 📌 Unified 200 response helper
-function apiResponse(
-  success: boolean,
-  message: string,
-  data: Record<string, any> = {}
-) {
-  return NextResponse.json(
-    {
-      success,
-      message,
-      data,
-    },
-    { status: 200 }
-  );
+function apiResponse(success: boolean, message: string, data: any = {}) {
+  return NextResponse.json({ success, message, data }, { status: 200 });
+}
+
+// 🔹 Extract userId from token
+function getUserIdFromToken(req: Request) {
+  const h = req.headers.get("authorization");
+  if (!h?.startsWith("Bearer ")) return null;
+
+  try {
+    const decoded = verifyAccessToken(h.split(" ")[1]) as any;
+    return decoded?.userId || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
 
-    const { bookingId, userId, driverId, wantsLicense } = await req.json();
+    const userId = getUserIdFromToken(req);
+    if (!userId) return apiResponse(false, "Unauthorized — invalid token");
 
-    // ---------------- VALIDATION ----------------
-    if (!bookingId || !userId || !driverId) {
-      return apiResponse(false, "bookingId, userId and driverId are required");
+    // 🔹 Get latest active booking of this user
+    const booking = await Booking.findOne({
+      userId,
+      status: { $in: ["ongoing", "completed"] },
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!booking) {
+      return apiResponse(false, "No booking found for this user");
     }
 
-    // ---------------- CREATE REQUEST ----------------
-    const reqDoc = await LicenseRequest.create({
-      bookingId,
+    if (!booking.assignedInstructorId) {
+      return apiResponse(false, "Instructor not assigned to this booking");
+    }
+
+    // 🔹 Prevent duplicate request for same booking
+    const exists = await LicenseRequest.findOne({
+      bookingId: booking.bookingId,
       userId,
-      driverId,
-      wantsLicense: Boolean(wantsLicense),
+    });
+
+    if (exists) {
+      return apiResponse(true, "License request already submitted", {
+        requestId: exists._id.toString(),
+        status: exists.status,
+      });
+    }
+
+    // 🔹 Create license request automatically
+    const reqDoc = await LicenseRequest.create({
+      bookingId: booking.bookingId,
+      userId,
+      driverId: booking.assignedInstructorId,
+      wantsLicense: true,
     });
 
     return apiResponse(true, "License request submitted", {
-      requestId: reqDoc._id?.toString() || "",
-      bookingId: reqDoc.bookingId || "",
-      userId: reqDoc.userId || "",
-      driverId: reqDoc.driverId || "",
-      wantsLicense: reqDoc.wantsLicense ?? false,
-      status: reqDoc.status || "pending",
-      createdAt: reqDoc.createdAt || "",
+      requestId: reqDoc._id.toString(),
+      bookingId: reqDoc.bookingId,
+      driverId: reqDoc.driverId,
+      status: reqDoc.status,
+      createdAt: reqDoc.createdAt,
     });
 
-  } catch (error) {
-    console.error("LICENSE REQUEST ERROR:", error);
+  } catch (err) {
+    console.error("LICENSE REQUEST ERROR:", err);
     return apiResponse(false, "Server error");
   }
 }

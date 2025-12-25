@@ -90,12 +90,13 @@ export async function POST(
     // -----------------------------
     // BUSINESS RULES
     // -----------------------------
-    if (!booking.paid) {
-      return NextResponse.json(
-        buildResponse(false, "Payment not completed"),
-        { status: 200 }
-      );
-    }
+    if (!booking.isPaid && booking.status !== "ongoing") {
+  return NextResponse.json(
+    buildResponse(false, "Payment not completed"),
+    { status: 200 }
+  );
+}
+
 
     if (["cancelled", "completed"].includes(booking.status)) {
       return NextResponse.json(
@@ -112,23 +113,26 @@ export async function POST(
     }
 
     // -----------------------------
-    // ASSIGN INSTRUCTOR
-    // -----------------------------
-    booking.assignedInstructorId = instructor._id;
-    booking.assignedGender = instructor.gender || "";
-    booking.status = "ongoing";
-    booking.instructorAcceptedAt = new Date();
+// ASSIGN INSTRUCTOR
+// -----------------------------
+booking.assignedInstructorId = instructor._id;
+booking.assignedGender = instructor.gender || "";
+booking.status = "ongoing";
+booking.instructorAcceptedAt = new Date();
 
-    booking.days = (booking.days || []).map((day: any) => ({
-      ...day,
-      instructorId: instructor._id,
-      instructorName: instructor.fullName || "",
-      instructorImage: instructor.idProofUrl || "",
-      instructorPhone: instructor.mobile || "",
-      instructorVehicleNumber: instructor.vehicleNumber || "",
-    }));
+// ⭐ Save instructor details at BOOKING level
+booking.instructorName = instructor.fullName || "";
+booking.instructorPhone = instructor.mobile || "";
+booking.instructorImage = instructor.idProofUrl || "";
+booking.instructorVehicleNumber = instructor.vehicleNumber || "";
 
-    await booking.save();
+// ⭐ Day-level: only link instructorId (no duplicate details)
+booking.days = (booking.days || []).map((day: any) => ({
+  ...day,
+  instructorId: instructor._id,
+}));
+
+await booking.save();
 
     // -----------------------------
     // RESPONSE (ALWAYS 200)

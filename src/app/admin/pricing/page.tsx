@@ -17,7 +17,7 @@ import SkeletonCard from "@/components/admin/SkeletonCard";
 
 type Pricing = {
   _id: string;
-  carType: "Hatchback" | "Sedan" | "SUV";
+  carType: string; // Changed to string to allow custom types
   pricePerDay: number;
   gstPercent: number;
   image: string;
@@ -60,19 +60,37 @@ export default function AdminPricingPage() {
       title: existing ? "Edit Vehicle Tier" : "Add New Vehicle Tier",
       // Custom HTML to make the form look premium inside SweetAlert
       html: `
-        <div class="text-left space-y-4 font-sans pt-2">
+        <div class="text-left space-y-6 font-sans pt-2">
+          <!-- Custom Creatable Category Input -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Vehicle Category</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Vehicle Category</label>
             <div class="relative">
-              <select id="carType" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all appearance-none">
-                <option value="Hatchback">Hatchback</option>
-                <option value="Sedan">Sedan</option>
-                <option value="SUV">SUV</option>
-              </select>
+              <input 
+                id="carTypeInput" 
+                type="text" 
+                list="categorySuggestions" 
+                value="${existing?.carType || ''}"
+                class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                placeholder="Type or select a category (e.g. Hatchback, Luxury...)"
+                autocomplete="off"
+              />
+              <datalist id="categorySuggestions">
+                <option value="Hatchback">
+                <option value="Sedan">
+                <option value="SUV">
+                <option value="Luxury">
+                <option value="MUV">
+                <option value="Convertible">
+                <option value="Electric">
+                <option value="Premium Sedan">
+              </datalist>
               <div class="absolute right-3 top-3.5 pointer-events-none text-gray-400">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
               </div>
             </div>
+            <p class="text-xs text-gray-500 mt-2">You can type a new custom category!</p>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -121,26 +139,33 @@ export default function AdminPricingPage() {
         cancelButton: "rounded-xl px-6 py-3 font-medium",
       },
       didOpen: () => {
+        const input = document.getElementById("carTypeInput") as HTMLInputElement;
         if (existing) {
-          (document.getElementById("carType") as HTMLSelectElement).value =
-            existing.carType;
+          input.value = existing.carType;
           (document.getElementById("price") as HTMLInputElement).value =
             String(existing.pricePerDay);
           (document.getElementById("gst") as HTMLInputElement).value =
             String(existing.gstPercent);
         }
+
+        // Optional: Auto-focus category input
+        input.focus();
       },
       preConfirm: async () => {
-        const carType = (document.getElementById("carType") as HTMLSelectElement)
-          .value as Pricing["carType"];
+        const carTypeInput = (document.getElementById("carTypeInput") as HTMLInputElement).value.trim();
         const price = Number(
           (document.getElementById("price") as HTMLInputElement).value
         );
         const gst = Number(
-          (document.getElementById("gst") as HTMLInputElement).value
+          (document.getElementById("gst") as HTMLInputElement).value || 18
         );
         const file = (document.getElementById("image") as HTMLInputElement)
           .files?.[0];
+
+        if (!carTypeInput) {
+          Swal.showValidationMessage("Please enter a vehicle category");
+          return;
+        }
 
         if (!price || price <= 0) {
           Swal.showValidationMessage("Please enter a valid price per day");
@@ -161,6 +186,7 @@ export default function AdminPricingPage() {
               "https://api.cloudinary.com/v1_1/dhuzvzyut/image/upload",
               { method: "POST", body: formData }
             ).then((r) => r.json());
+            if (!upload.secure_url) throw new Error("Upload failed");
             imageUrl = upload.secure_url;
           } catch (error) {
             Swal.showValidationMessage("Image upload failed. Try again.");
@@ -173,25 +199,41 @@ export default function AdminPricingPage() {
           return;
         }
 
-        return { carType, pricePerDay: price, gstPercent: gst, image: imageUrl };
+        return { carType: carTypeInput, pricePerDay: price, gstPercent: gst, image: imageUrl };
       },
     });
 
     if (!form) return;
 
-    await fetch("/api/admin/pricing", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    // If editing, use PUT, else POST
+    const method = existing ? "PUT" : "POST";
+    const url = existing ? `/api/admin/pricing/${existing._id}` : "/api/admin/pricing";
 
-    Swal.fire({
-      icon: "success",
-      title: "Saved!",
-      text: "Fleet pricing updated successfully",
-      timer: 2000,
-      showConfirmButton: false,
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) throw new Error();
+
+      Swal.fire({
+        icon: "success",
+        title: "Saved!",
+        text: existing ? "Fleet pricing updated successfully" : "New tier created",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch {
+      Swal.fire({
+        icon: "error",
+        title: "Failed",
+        text: "Could not save pricing tier",
+      });
+      return;
+    }
+
     fetchPricing();
   }
 

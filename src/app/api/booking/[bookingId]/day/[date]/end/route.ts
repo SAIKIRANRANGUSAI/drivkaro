@@ -5,152 +5,130 @@ import BookingDay from "@/models/BookingDay";
 import User from "@/models/User";
 import { sendPushNotification } from "@/lib/sendNotification";
 
-// 📌 Unified 200 response helper
-function apiResponse(
-  success: boolean,
-  message: string,
-  data: Record<string, any> = {}
-) {
-  return NextResponse.json(
-    {
-      success,
-      message,
-      data,
-    },
-    { status: 200 }
-  );
-}
+const api = (ok: boolean, msg: string, data: any = {}) =>
+  NextResponse.json({ success: ok, message: msg, data }, { status: 200 });
+
+// 🇮🇳 India-timezone YYYY-MM-DD
+const today = () =>
+  new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ bookingId: string; date: string }> }
+  { params }: { params: Promise<{ bookingId: string; date: string }> }
 ) {
   try {
-    const { bookingId, date } = await context.params;
+    const { bookingId, date } = await params;
     const { otp } = await req.json();
 
-    if (!bookingId || !date || !otp) {
-      return apiResponse(false, "bookingId, date and otp are required");
-    }
+    if (!bookingId || !date || !otp)
+      return api(false, "bookingId, date and otp are required");
 
     await connectDB();
 
-    // 1️⃣ Lookup booking
+    // 🔎 Find booking (by ObjectId or bookingId)
     let booking: any = null;
-
-    if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
+    if (/^[0-9a-fA-F]{24}$/.test(bookingId))
       booking = await Booking.findById(bookingId);
-    }
-
-    if (!booking) {
+    if (!booking)
       booking = await Booking.findOne({ bookingId });
-    }
 
-    if (!booking) {
-      return apiResponse(false, "Booking not found");
-    }
+    if (!booking) return api(false, "Booking not found");
+    if (!booking.paid) return api(false, "Payment not completed");
+    if (!booking.assignedInstructorId)
+      return api(false, "Instructor not assigned");
 
-    if (!booking.paid || booking.status !== "ongoing") {
-      return apiResponse(false, "Booking not active");
-    }
+    if (booking.status !== "ongoing")
+      return api(false, "Booking is not active");
 
-    // 2️⃣ Locate Day
-    const dayEntry = booking.days.find((d: any) => d.date === date);
+    // 🔎 Locate day entry
+    const day = booking.days.find((d: any) => d.date === date);
+    if (!day) return api(false, "No schedule found for this date");
 
-    if (!dayEntry) {
-      return apiResponse(false, "No schedule found for this date");
-    }
+    // ⛔ Session must be ended only for today
+    if (date !== today())
+      return api(false, "Session can be ended only for today", {
+        allowedDate: today(),
+      });
 
-    // 3️⃣ Validate START session
-    if (dayEntry.status !== "started") {
-      return apiResponse(false, "Start session not completed yet");
-    }
+    // ⛔ Must have been started first
+    if (day.status !== "started")
+      return api(false, "Session not started yet");
 
-    if (!dayEntry.startedAt) {
-      return apiResponse(false, "Start OTP not verified");
-    }
+    if (!day.startedAt)
+      return api(false, "Start OTP not verified");
 
-    // 4️⃣ Validate End OTP
-    if (dayEntry.endOtp !== otp) {
-      return apiResponse(false, "Invalid end OTP");
-    }
+    // ⛔ Prevent duplicate completion
+    if (day.status === "completed")
+      return api(false, "Session already completed");
 
-    // 5️⃣ Update BookingDay collection
+    // 🔐 Validate END OTP
+    if (day.endOtp !== otp)
+      return api(false, "Invalid end OTP");
+
+    // 📝 Save in BookingDay collection (if used in reports)
     let bookingDay = await BookingDay.findOne({
       booking: booking._id,
       date,
     });
 
-    if (!bookingDay) {
-      bookingDay = new BookingDay({
-        booking: booking._id,
-        date,
-      });
-    }
+    if (!bookingDay)
+      bookingDay = new BookingDay({ booking: booking._id, date });
 
     bookingDay.endVerifiedAt = new Date();
     bookingDay.status = "completed";
     await bookingDay.save();
 
-    // 6️⃣ Update embedded day entry
-    dayEntry.status = "completed";
-    dayEntry.completedAt = new Date();
-
+    // 🟢 Update embedded booking day
+    day.status = "completed";
+    day.completedAt = new Date();
     await booking.save();
 
-    // 7️⃣ If all days completed → complete booking
-    const allCompleted = booking.days.every(
-      (d: any) => d.status === "completed"
+    // 🎯 If ALL days done → close booking
+    const allDone = booking.days.every(
+      (d: any) => d.status === "completed" || d.status === "missed"
     );
 
-    if (allCompleted) {
+    if (allDone) {
       booking.status = "completed";
       booking.completedAt = new Date();
       await booking.save();
     }
 
-    // --------------------------------------------------
-    // 🔔 SEND NOTIFICATIONS
-    // --------------------------------------------------
-
+    // 🔔 Notifications
     const user = await User.findById(booking.userId);
     const instructor = await User.findById(booking.assignedInstructorId);
 
-    if (user?.fcmToken) {
+    if (user?.fcmToken)
       await sendPushNotification(
         user.fcmToken,
         "Session Completed 🎉",
-        `Your driving session on ${date} is successfully completed.`
+        `Your driving session on ${date} is completed.`
       );
-    }
 
-    if (instructor?.fcmToken) {
+    if (instructor?.fcmToken)
       await sendPushNotification(
         instructor.fcmToken,
-        "User Session Done ✔️",
-        `Session for booking ${booking.bookingId} on ${date} has been completed.`
+        "Session Closed ✔️",
+        `Session for booking ${booking.bookingId} has been completed.`
       );
-    }
 
-    if (process.env.ADMIN_FCM_TOKEN) {
+    if (process.env.ADMIN_FCM_TOKEN)
       await sendPushNotification(
         process.env.ADMIN_FCM_TOKEN,
         "Session Completed ✔️",
         `Booking ${booking.bookingId} session completed for ${date}.`
       );
-    }
 
-    // --------------------------------------------------
-
-    return apiResponse(true, "Day session completed", {
-      bookingId: booking.bookingId || "",
-      date: date || "",
-      dayStatus: dayEntry.status || "",
-      bookingStatus: booking.status || "",
-      completedAt: dayEntry.completedAt || "",
+    return api(true, "Day session completed", {
+      bookingId: booking.bookingId,
+      date,
+      dayStatus: day.status,
+      bookingStatus: booking.status,
+      completedAt: day.completedAt,
     });
-  } catch (error) {
-    console.error("End day session error:", error);
-    return apiResponse(false, "Server error");
+
+  } catch (err) {
+    console.error("END DAY ERROR >>>", err);
+    return api(false, "Server error");
   }
 }
