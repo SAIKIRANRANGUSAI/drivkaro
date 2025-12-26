@@ -2,199 +2,189 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Instructor from "@/models/Instructor";
 import cloudinary from "@/lib/cloudinary";
+import { getInstructorId } from "@/lib/auth";
 
-// ---------------- UTILS ----------------
-function buildResponse(
-  success: boolean,
-  message: string,
-  data: any = {}
-) {
+function buildResponse(success: boolean, message: string, data: any = {}) {
   return { success, message, data };
 }
 
-// Convert null / undefined → ""
 function sanitize(obj: any) {
-  const clean: any = {};
-  Object.keys(obj || {}).forEach((key) => {
-    clean[key] =
-      obj[key] === null || obj[key] === undefined ? "" : obj[key];
+  const out: any = {};
+  Object.keys(obj || {}).forEach(k => {
+    out[k] = obj[k] == null ? "" : obj[k];
   });
-  return clean;
+  return out;
 }
 
-// ---------------- CLOUDINARY UPLOAD ----------------
-async function uploadToCloudinary(
-  file: File,
-  folder: string
-): Promise<string> {
+async function upload(file: File, folder: string) {
   const buffer = Buffer.from(await file.arrayBuffer());
-
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result?.secure_url || "");
-      }
-    );
-    stream.end(buffer);
+  return new Promise<string>((resolve, reject) => {
+    cloudinary.uploader.upload_stream({ folder }, (err, res) => {
+      if (err) return reject(err);
+      resolve(res?.secure_url || "");
+    }).end(buffer);
   });
 }
 
-// ================= POST: SUBMIT / UPDATE PROFILE =================
+/* =============== POST — SUBMIT / UPDATE PROFILE =============== */
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
-    const instructorId = req.headers.get("x-instructor-id");
-
-    if (!instructorId) {
-      return NextResponse.json(
-        buildResponse(false, "x-instructor-id header required"),
-        { status: 400 }
-      );
+    let instructorId: string | null = null;
+    try {
+      instructorId = getInstructorId(req);
+    } catch {
+      instructorId = null;
     }
 
-    const formData = await req.formData();
+    if (!instructorId)
+      return NextResponse.json(
+        buildResponse(false, "Unauthorized user"),
+        { status: 200 }
+      );
 
-    // ---------------- VALIDATION ----------------
-    const requiredFields = [
-      "fullName",
-      "gender",
-      "dob",
-      "city",
-      "vehicleNumber",
-      "dlNumber",
-      "idProofType",
+    const form = await req.formData();
+
+    const required = [
+      "drivingSchoolName",
+      "registrationNumber",
+      "ownerName",
+      "email",
+      "dlNumber"
     ];
 
-    for (const field of requiredFields) {
-      if (!formData.get(field)) {
+    for (const f of required)
+      if (!form.get(f))
         return NextResponse.json(
-          buildResponse(false, `${field} is required`),
-          { status: 400 }
+          buildResponse(false, `${f} is required`),
+          { status: 200 }
         );
-      }
-    }
 
-    // ---------------- FILE UPLOADS ----------------
-    let dlImageUrl = "";
-    let idProofUrl = "";
+    const instructor = await Instructor.findById(instructorId);
 
-    const dlFile = formData.get("dlImage") as File | null;
-    const idFile = formData.get("idProof") as File | null;
-
-    if (dlFile) {
-      dlImageUrl = await uploadToCloudinary(dlFile, "instructors/dl");
-    }
-
-    if (idFile) {
-      idProofUrl = await uploadToCloudinary(idFile, "instructors/idproof");
-    }
-
-    // ---------------- UPDATE DB ----------------
-    const updated = await Instructor.findByIdAndUpdate(
-      instructorId,
-      {
-        fullName: formData.get("fullName"),
-        gender: formData.get("gender"),
-        dob: new Date(formData.get("dob") as string),
-        city: formData.get("city"),
-        carTypes:
-          (formData.get("carTypes") as string)?.split(",") || [],
-        vehicleNumber: formData.get("vehicleNumber"),
-        dlNumber: formData.get("dlNumber"),
-        idProofType: formData.get("idProofType"),
-        ...(dlImageUrl && { dlImageUrl }),
-        ...(idProofUrl && { idProofUrl }),
-        status: "pending",
-      },
-      { new: true }
-    );
-
-    if (!updated) {
+    if (!instructor)
       return NextResponse.json(
         buildResponse(false, "Instructor not found"),
-        { status: 404 }
+        { status: 200 }
       );
-    }
 
-    // ---------------- RESPONSE ----------------
+    let dlFront = instructor.dlImageFrontUrl || "";
+    let dlBack  = instructor.dlImageBackUrl || "";
+
+    const frontFile = form.get("dlFront") as File | null;
+    const backFile  = form.get("dlBack") as File | null;
+
+    if (frontFile) dlFront = await upload(frontFile, "instructors/dl/front");
+    if (backFile)  dlBack  = await upload(backFile,  "instructors/dl/back");
+
+    instructor.fullName = form.get("drivingSchoolName") as string;
+    instructor.registrationNumber = form.get("registrationNumber") as string;
+    instructor.ownerName = form.get("ownerName") as string;
+    instructor.email = form.get("email") as string;
+    instructor.dlNumber = form.get("dlNumber") as string;
+    instructor.dlImageFrontUrl = dlFront;
+    instructor.dlImageBackUrl = dlBack;
+
+    instructor.status = "pending";
+    instructor.rejectionMessage = "";
+    instructor.rejectedAt = null;
+
+    await instructor.save();
+
+    const profileCompleted = Boolean(
+      instructor.fullName &&
+      instructor.registrationNumber &&
+      instructor.ownerName &&
+      instructor.dlNumber &&
+      instructor.dlImageFrontUrl &&
+      instructor.dlImageBackUrl
+    );
+
     return NextResponse.json(
-      buildResponse(true, "Profile submitted for approval", sanitize({
-        id: updated._id.toString(),
-        fullName: updated.fullName,
-        gender: updated.gender,
-        dob: updated.dob,
-        city: updated.city,
-        carTypes: updated.carTypes,
-        vehicleNumber: updated.vehicleNumber,
-        dlNumber: updated.dlNumber,
-        dlImageUrl: updated.dlImageUrl,
-        idProofType: updated.idProofType,
-        idProofUrl: updated.idProofUrl,
-        status: updated.status,
+      buildResponse(true, "Profile submitted for review", sanitize({
+        id: instructor._id.toString(),
+        drivingSchoolName: instructor.fullName,
+        registrationNumber: instructor.registrationNumber,
+        ownerName: instructor.ownerName,
+        email: instructor.email,
+        mobile: instructor.mobile,
+        dlNumber: instructor.dlNumber,
+        dlFront: instructor.dlImageFrontUrl,
+        dlBack: instructor.dlImageBackUrl,
+        status: instructor.status,
+        profileCompleted
       })),
       { status: 200 }
     );
 
-  } catch (err) {
-    console.error("Instructor profile update error:", err);
+  } catch (e) {
+    console.error("Profile update error", e);
     return NextResponse.json(
       buildResponse(false, "Server error"),
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
 
-// ================= GET: FETCH PROFILE =================
+/* =============== GET — FETCH PROFILE (ALWAYS 200) =============== */
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
-    const instructorId = req.headers.get("x-instructor-id");
-
-    if (!instructorId) {
-      return NextResponse.json(
-        buildResponse(false, "x-instructor-id header required"),
-        { status: 400 }
-      );
+    let instructorId: string | null = null;
+    try {
+      instructorId = getInstructorId(req);
+    } catch {
+      instructorId = null;
     }
 
-    const instructor = await Instructor.findById(instructorId).select(
-      "-password -__v"
-    );
+    if (!instructorId)
+      return NextResponse.json(
+        buildResponse(false, "Unauthorized user"),
+        { status: 200 }
+      );
 
-    if (!instructor) {
+    const instructor = await Instructor.findById(instructorId);
+
+    if (!instructor)
       return NextResponse.json(
         buildResponse(false, "Instructor not found"),
-        { status: 404 }
+        { status: 200 }
       );
-    }
+
+    const profileCompleted = Boolean(
+      instructor.fullName &&
+      instructor.registrationNumber &&
+      instructor.ownerName &&
+      instructor.dlNumber &&
+      instructor.dlImageFrontUrl &&
+      instructor.dlImageBackUrl
+    );
 
     return NextResponse.json(
       buildResponse(true, "Profile fetched successfully", sanitize({
         id: instructor._id.toString(),
-        fullName: instructor.fullName,
-        gender: instructor.gender,
-        dob: instructor.dob,
-        city: instructor.city,
-        carTypes: instructor.carTypes,
-        vehicleNumber: instructor.vehicleNumber,
+        drivingSchoolName: instructor.fullName,
+        registrationNumber: instructor.registrationNumber,
+        ownerName: instructor.ownerName,
+        email: instructor.email,
+        mobile: instructor.mobile,
         dlNumber: instructor.dlNumber,
-        dlImageUrl: instructor.dlImageUrl,
-        idProofType: instructor.idProofType,
-        idProofUrl: instructor.idProofUrl,
+        dlFront: instructor.dlImageFrontUrl,
+        dlBack: instructor.dlImageBackUrl,
         status: instructor.status,
+        rejectionMessage: instructor.rejectionMessage || "",
+        profileCompleted
       })),
       { status: 200 }
     );
 
-  } catch (err) {
-    console.error("Get instructor profile error:", err);
+  } catch (e) {
+    console.error("Get profile error", e);
     return NextResponse.json(
       buildResponse(false, "Server error"),
-      { status: 500 }
+      { status: 200 }
     );
   }
 }

@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
-import Otp from "@/models/Otp";
 import Instructor from "@/models/Instructor";
-import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
-// 🔹 utility: standard response (ALWAYS 200)
-function buildResponse(
-  success: boolean,
-  message: string,
-  data: any = {}
-) {
+function buildResponse(success: boolean, message: string, data: any = {}) {
   return { success, message, data };
 }
 
@@ -23,53 +16,28 @@ export async function POST(req: NextRequest) {
     const otp = body?.otp || "";
 
     // -----------------------------
-    // VALIDATIONS (APP FRIENDLY)
+    // VALIDATION (ALWAYS 200)
     // -----------------------------
-    if (!mobile || !otp) {
+    if (!mobile || !otp)
       return NextResponse.json(
         buildResponse(false, "mobile and otp are required"),
         { status: 200 }
       );
-    }
 
-    if (!/^[6-9]\d{9}$/.test(mobile)) {
+    if (!/^[6-9]\d{9}$/.test(mobile))
       return NextResponse.json(
         buildResponse(false, "Invalid mobile number"),
         { status: 200 }
       );
-    }
 
-    if (!/^\d{6}$/.test(otp)) {
+    // -----------------------------
+    // STATIC TEST OTP
+    // -----------------------------
+    if (otp !== "1234")
       return NextResponse.json(
-        buildResponse(false, "Invalid OTP format"),
+        buildResponse(false, "Invalid OTP"),
         { status: 200 }
       );
-    }
-
-    // -----------------------------
-    // FIND OTP
-    // -----------------------------
-    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-
-    const record = await Otp.findOne({
-      phone: mobile,
-      otpHash,
-      used: false,
-      expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: -1 });
-
-    if (!record) {
-      return NextResponse.json(
-        buildResponse(false, "Invalid or expired OTP"),
-        { status: 200 }
-      );
-    }
-
-    // -----------------------------
-    // MARK OTP AS USED
-    // -----------------------------
-    record.used = true;
-    await record.save();
 
     // -----------------------------
     // FIND / CREATE INSTRUCTOR
@@ -85,22 +53,31 @@ export async function POST(req: NextRequest) {
     }
 
     // -----------------------------
-    // GENERATE JWT
+    // PROFILE COMPLETION CHECK
     // -----------------------------
-    const tokenPayload = {
-      id: instructor._id.toString(),
-      mobile: instructor.mobile,
-      role: "instructor",
-    };
+    const profileCompleted = Boolean(
+      instructor.fullName &&
+      instructor.registrationNumber &&
+      instructor.ownerName &&
+      instructor.dlNumber &&
+      (instructor.dlImageFrontUrl || instructor.dlImageBackUrl)
+    );
 
+    // -----------------------------
+    // GENERATE ACCESS TOKEN
+    // -----------------------------
     const accessToken = jwt.sign(
-      tokenPayload,
+      {
+        id: instructor._id.toString(),
+        mobile: instructor.mobile,
+        role: "instructor",
+      },
       process.env.JWT_SECRET || "secret",
       { expiresIn: "7d" }
     );
 
     // -----------------------------
-    // RESPONSE (ALWAYS 200, NO NULLS)
+    // RESPONSE
     // -----------------------------
     return NextResponse.json(
       buildResponse(true, "OTP verified successfully", {
@@ -108,9 +85,11 @@ export async function POST(req: NextRequest) {
           id: instructor._id.toString(),
           fullName: instructor.fullName || "",
           mobile: instructor.mobile || "",
-          status: instructor.status || "",
+          status: instructor.status || "pending",
+          profileCompleted,
+          rejectionMessage: instructor.rejectionMessage || ""
         },
-        accessToken: accessToken || "",
+        accessToken
       }),
       { status: 200 }
     );
