@@ -650,7 +650,15 @@ export async function GET(req: NextRequest) {
             image: firstInstructor.instructorImage,
             assigned: true
           }
-        : { assigned: false, message: "Instructor will be assigned soon" };
+        : {
+    assigned: false,
+    id: null,
+    name: null,
+    phone: null,
+    vehicleNumber: null,
+    image: null
+  };
+
 
       return NextResponse.json({
         success: true,
@@ -707,7 +715,15 @@ export async function GET(req: NextRequest) {
             image: b.instructorImage || dayInstructor?.instructorImage || null,
             assigned: true
           }
-        : { assigned: false, message: "Instructor will be assigned soon" };
+          : {
+      assigned: false,
+      id: null,
+      name: null,
+      phone: null,
+      vehicleNumber: null,
+      image: null
+    };
+
 
       return {
         bookingId: b.bookingId,
