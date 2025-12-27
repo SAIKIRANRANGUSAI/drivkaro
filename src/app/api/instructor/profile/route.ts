@@ -88,7 +88,8 @@ export async function POST(req: NextRequest) {
 
     instructor.status = "pending";
     instructor.rejectionMessage = "";
-    instructor.rejectedAt = null;
+    instructor.rejectedAt = undefined;
+
 
     await instructor.save();
 
