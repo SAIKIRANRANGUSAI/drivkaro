@@ -22,7 +22,7 @@ export interface IInstructor extends Document {
   carType?: string;
   fuelType?: string;
   brand?: string;
-  model?: string;
+  model?: any;
   purchaseYear?: string;
   vehicleNumber?: string;
   rcBookUrl?: string;
