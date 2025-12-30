@@ -1,32 +1,49 @@
+// models/Instructor.ts
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IInstructor extends Document {
-  fullName: string;                      // Driving School Name
+  fullName: string;
   mobile: string;
 
-  // School & Owner details
   registrationNumber?: string;
   ownerName?: string;
   email?: string;
 
-  // Old fields (still supported)
+  // ===== Location =====
+  areaName?: string;
+  latitude?: number;
+  longitude?: number;
+  location?: {
+    type: "Point";
+    coordinates: number[]; // [lng, lat]
+  };
+
+  // ===== Vehicle Details =====
+  carType?: string;
+  fuelType?: string;
+  brand?: string;
+  model?: string;
+  purchaseYear?: string;
+  vehicleNumber?: string;
+  rcBookUrl?: string;
+  carImages?: string[];
+
+  // ===== Legacy / Profile Fields =====
   gender?: "male" | "female" | "other";
   dob?: Date;
   city?: string;
   carTypes?: string[];
 
-  vehicleNumber?: string;
   dlNumber?: string;
 
-  // New DL images
   dlImageFrontUrl?: string;
   dlImageBackUrl?: string;
 
-  // Old fields (legacy support)
   dlImageUrl?: string;
   idProofType?: string;
   idProofUrl?: string;
 
+  // ===== Profile Review Status =====
   status: "pending" | "approved" | "rejected" | "blocked";
 
   rejectionMessage?: string;
@@ -34,39 +51,56 @@ export interface IInstructor extends Document {
   rejectedAt?: Date;
 
   wallet: number;
+
+  // ===== Driver Duty / Availability (NEW) =====
+  dutyStatus?: "offline" | "online" | "busy";
+  lastActiveAt?: Date;
 }
 
 const InstructorSchema = new Schema<IInstructor>(
   {
-    fullName: { type: String, default: "" }, // Driving School Name
-
+    fullName: { type: String, default: "" },
     mobile: { type: String, required: true, unique: true, index: true },
 
-    // ===== Driving School Fields =====
     registrationNumber: { type: String },
     ownerName: { type: String },
     email: { type: String },
 
-    // ===== Legacy personal profile (optional) =====
+    // ===== Location / Service Area =====
+    areaName: { type: String },
+    latitude: { type: Number },
+    longitude: { type: Number },
+    location: {
+      type: { type: String, enum: ["Point"], default: "Point" },
+      coordinates: { type: [Number], default: [0, 0] } // [lng, lat]
+    },
+
+    // ===== Vehicle Details =====
+    carType: { type: String, default: "" },
+    fuelType: { type: String, default: "" },
+    brand: { type: String, default: "" },
+    model: { type: String, default: "" },
+    purchaseYear: { type: String, default: "" },
+    vehicleNumber: { type: String, default: "" },
+    rcBookUrl: { type: String, default: "" },
+    carImages: [{ type: String, default: "" }],
+
+    // ===== Profile / Legacy =====
     gender: { type: String, enum: ["male", "female", "other"], default: "male" },
     dob: { type: Date },
     city: { type: String },
     carTypes: [{ type: String }],
 
-    // ===== Vehicle / License =====
-    vehicleNumber: { type: String },
     dlNumber: { type: String },
 
-    // ===== New DL Upload fields =====
     dlImageFrontUrl: { type: String },
     dlImageBackUrl: { type: String },
 
-    // ===== Old fields (still safe to keep) =====
     dlImageUrl: { type: String },
     idProofType: { type: String },
     idProofUrl: { type: String },
 
-    // ===== Status Flow =====
+    // ===== Profile Review Status =====
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "blocked"],
@@ -77,11 +111,22 @@ const InstructorSchema = new Schema<IInstructor>(
     approvedAt: { type: Date },
     rejectedAt: { type: Date },
 
-    // Wallet
     wallet: { type: Number, default: 0 },
+
+    // ===== Driver Duty / Availability (NEW) =====
+    dutyStatus: {
+      type: String,
+      enum: ["offline", "online", "busy"],
+      default: "offline"
+    },
+
+    lastActiveAt: { type: Date, default: null }
   },
   { timestamps: true }
 );
+
+// ===== Important for 15KM nearby orders =====
+InstructorSchema.index({ location: "2dsphere" });
 
 const Instructor: Model<IInstructor> =
   mongoose.models.Instructor ||

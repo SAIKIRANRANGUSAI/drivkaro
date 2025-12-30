@@ -490,6 +490,19 @@ const BookingSchema = new Schema<IBooking>(
       lng: { type: Number, required: true },
     },
 
+    // ⭐ GeoJSON field for nearby-search
+    pickupLocationPoint: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number],   // [lng, lat]
+        required: true,
+      },
+    },
+
     carType: { type: String, required: true },
     pricePerDay: { type: Number, required: true },
     slotTime: { type: String, required: true },
@@ -526,6 +539,7 @@ const BookingSchema = new Schema<IBooking>(
       enum: ["PENDING", "SUCCESS", "FAILED"],
       default: "PENDING",
     },
+
     paymentTxnRef: { type: String, default: null },
     paymentVerifiedAt: { type: Date, default: null },
 
@@ -543,6 +557,9 @@ const BookingSchema = new Schema<IBooking>(
   },
   { timestamps: true }
 );
+
+// ⭐ IMPORTANT: enable geospatial queries
+BookingSchema.index({ pickupLocationPoint: "2dsphere" });
 
 export default mongoose.models.Booking ||
   mongoose.model<IBooking>("Booking", BookingSchema);

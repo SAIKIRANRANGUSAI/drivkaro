@@ -863,15 +863,22 @@ export async function POST(req: Request) {
     const booking = await Booking.create({
   userId,
   bookingId: "BK" + Date.now() + Math.floor(Math.random() * 1000),
+
   pickupLocation: pickup,
   dropLocation,
+
+  // ⭐ REQUIRED — GeoJSON field used for nearby search
+  pickupLocationPoint: {
+    type: "Point",
+    coordinates: [pickup.lng, pickup.lat]   // [lng, lat]
+  },
+
   carType: body.carType,
   pricePerDay: pricing.pricePerDay,
   slotTime: body.slotTime,
   daysCount: days.length,
   days,
 
-  // ⭐ FIX — save gender
   preferredGender: body.preferredGender || null,
 
   amount: 0,

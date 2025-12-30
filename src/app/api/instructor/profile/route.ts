@@ -26,23 +26,16 @@ async function upload(file: File, folder: string) {
   });
 }
 
-/* =============== POST — SUBMIT / UPDATE PROFILE =============== */
+/* ========== POST — SUBMIT / UPDATE PROFILE ========== */
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
 
     let instructorId: string | null = null;
-    try {
-      instructorId = getInstructorId(req);
-    } catch {
-      instructorId = null;
-    }
+    try { instructorId = getInstructorId(req); } catch {}
 
     if (!instructorId)
-      return NextResponse.json(
-        buildResponse(false, "Unauthorized user"),
-        { status: 200 }
-      );
+      return NextResponse.json(buildResponse(false, "Unauthorized user"), { status: 200 });
 
     const form = await req.formData();
 
@@ -51,24 +44,21 @@ export async function POST(req: NextRequest) {
       "registrationNumber",
       "ownerName",
       "email",
-      "dlNumber"
+      "dlNumber",
+      "areaName",
+      "latitude",
+      "longitude"
     ];
 
     for (const f of required)
       if (!form.get(f))
-        return NextResponse.json(
-          buildResponse(false, `${f} is required`),
-          { status: 200 }
-        );
+        return NextResponse.json(buildResponse(false, `${f} is required`), { status: 200 });
 
     const instructor = await Instructor.findById(instructorId);
-
     if (!instructor)
-      return NextResponse.json(
-        buildResponse(false, "Instructor not found"),
-        { status: 200 }
-      );
+      return NextResponse.json(buildResponse(false, "Instructor not found"), { status: 200 });
 
+    // ===== DL Uploads =====
     let dlFront = instructor.dlImageFrontUrl || "";
     let dlBack  = instructor.dlImageBackUrl || "";
 
@@ -76,30 +66,52 @@ export async function POST(req: NextRequest) {
     const backFile  = form.get("dlBack") as File | null;
 
     if (frontFile) dlFront = await upload(frontFile, "instructors/dl/front");
-    if (backFile)  dlBack  = await upload(backFile,  "instructors/dl/back");
+    if (backFile)  dlBack  = await upload(backFile, "instructors/dl/back");
 
+    // ===== Save Profile Fields =====
     instructor.fullName = form.get("drivingSchoolName") as string;
     instructor.registrationNumber = form.get("registrationNumber") as string;
     instructor.ownerName = form.get("ownerName") as string;
     instructor.email = form.get("email") as string;
     instructor.dlNumber = form.get("dlNumber") as string;
+
     instructor.dlImageFrontUrl = dlFront;
     instructor.dlImageBackUrl = dlBack;
 
+    // ===== Save Location =====
+    instructor.areaName = form.get("areaName") as string;
+    instructor.latitude = Number(form.get("latitude"));
+    instructor.longitude = Number(form.get("longitude"));
+    instructor.location = {
+      type: "Point",
+      coordinates: [instructor.longitude, instructor.latitude]
+    };
+
+    // ===== Reset review flow on every edit =====
     instructor.status = "pending";
     instructor.rejectionMessage = "";
     instructor.rejectedAt = undefined;
 
+    // ===== Force Offline when profile is under review =====
+    instructor.dutyStatus = "offline";
 
     await instructor.save();
 
-    const profileCompleted = Boolean(
+    // ===== Completion Flags =====
+    const isProfileCompleted = Boolean(
       instructor.fullName &&
       instructor.registrationNumber &&
       instructor.ownerName &&
       instructor.dlNumber &&
       instructor.dlImageFrontUrl &&
-      instructor.dlImageBackUrl
+      instructor.dlImageBackUrl &&
+      instructor.location
+    );
+
+    const isVehicleCompleted = Boolean(
+      instructor.carType &&
+      instructor.vehicleNumber &&
+      instructor.rcBookUrl
     );
 
     return NextResponse.json(
@@ -113,54 +125,56 @@ export async function POST(req: NextRequest) {
         dlNumber: instructor.dlNumber,
         dlFront: instructor.dlImageFrontUrl,
         dlBack: instructor.dlImageBackUrl,
-        status: instructor.status,
-        profileCompleted
+        areaName: instructor.areaName,
+        latitude: instructor.latitude,
+        longitude: instructor.longitude,
+
+        reviewStatus: instructor.status,     // pending / approved / rejected / blocked
+        rejectionMessage: instructor.rejectionMessage || "",
+
+        isProfileCompleted,
+        isVehicleCompleted,
+
+        dutyStatus: instructor.dutyStatus,   // offline (forced during review)
       })),
       { status: 200 }
     );
 
   } catch (e) {
     console.error("Profile update error", e);
-    return NextResponse.json(
-      buildResponse(false, "Server error"),
-      { status: 200 }
-    );
+    return NextResponse.json(buildResponse(false, "Server error"), { status: 200 });
   }
 }
 
-/* =============== GET — FETCH PROFILE (ALWAYS 200) =============== */
+/* ========== GET — FETCH PROFILE STATUS ========== */
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
     let instructorId: string | null = null;
-    try {
-      instructorId = getInstructorId(req);
-    } catch {
-      instructorId = null;
-    }
+    try { instructorId = getInstructorId(req); } catch {}
 
     if (!instructorId)
-      return NextResponse.json(
-        buildResponse(false, "Unauthorized user"),
-        { status: 200 }
-      );
+      return NextResponse.json(buildResponse(false, "Unauthorized user"), { status: 200 });
 
     const instructor = await Instructor.findById(instructorId);
-
     if (!instructor)
-      return NextResponse.json(
-        buildResponse(false, "Instructor not found"),
-        { status: 200 }
-      );
+      return NextResponse.json(buildResponse(false, "Instructor not found"), { status: 200 });
 
-    const profileCompleted = Boolean(
+    const isProfileCompleted = Boolean(
       instructor.fullName &&
       instructor.registrationNumber &&
       instructor.ownerName &&
       instructor.dlNumber &&
       instructor.dlImageFrontUrl &&
-      instructor.dlImageBackUrl
+      instructor.dlImageBackUrl &&
+      instructor.location
+    );
+
+    const isVehicleCompleted = Boolean(
+      instructor.carType &&
+      instructor.vehicleNumber &&
+      instructor.rcBookUrl
     );
 
     return NextResponse.json(
@@ -174,18 +188,23 @@ export async function GET(req: NextRequest) {
         dlNumber: instructor.dlNumber,
         dlFront: instructor.dlImageFrontUrl,
         dlBack: instructor.dlImageBackUrl,
-        status: instructor.status,
+        areaName: instructor.areaName,
+        latitude: instructor.latitude,
+        longitude: instructor.longitude,
+
+        reviewStatus: instructor.status,
         rejectionMessage: instructor.rejectionMessage || "",
-        profileCompleted
+
+        isProfileCompleted,
+        isVehicleCompleted,
+
+        dutyStatus: instructor.dutyStatus || "offline"
       })),
       { status: 200 }
     );
 
   } catch (e) {
     console.error("Get profile error", e);
-    return NextResponse.json(
-      buildResponse(false, "Server error"),
-      { status: 200 }
-    );
+    return NextResponse.json(buildResponse(false, "Server error"), { status: 200 });
   }
 }

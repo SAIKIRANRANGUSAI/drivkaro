@@ -95,7 +95,7 @@ const cached = globalWithMongoose.mongoose;
 // Connect Function
 // -------------------
 async function connectDB() {
-  const MONGO_URI = process.env.MONGODB_URI;
+  const MONGO_URI = process.env.MONGO_URI;
 
   if (!MONGO_URI) {
     throw new Error("❌ MONGODB_URI not found in environment variables");
