@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const instructorId = getInstructorId(req);
-    const instructor = await Instructor.findById(instructorId);
+    const instructor: any = await Instructor.findById(instructorId);
 
     if (!instructor)
       return NextResponse.json(
@@ -21,12 +21,16 @@ export async function GET(req: NextRequest) {
         { status: 200 }
       );
 
-    // ✅ Allow BUSY + ONLINE (only block if offline or not approved)
-    if (!["online", "busy"].includes(instructor.dutyStatus) ||
-        instructor.status !== "approved") {
+    // ✅ Normalize values to avoid TS errors
+    const dutyStatus = instructor.dutyStatus ?? "offline";
+    const reviewStatus = instructor.status ?? "pending";
+
+    // ✅ Allow BUSY + ONLINE (block if offline or not approved)
+    if (!["online", "busy"].includes(dutyStatus) ||
+        reviewStatus !== "approved") {
       return NextResponse.json(
         buildResponse(false, "Driver is not active", {
-          dutyStatus: instructor.dutyStatus
+          dutyStatus
         }),
         { status: 200 }
       );
@@ -40,9 +44,7 @@ export async function GET(req: NextRequest) {
 
     const [lng, lat] = instructor.location.coordinates;
 
-    // 🟢 Show:
-    //  - requested bookings
-    //  - ongoing but still unassigned bookings
+    // 🟢 Show requested + unassigned ongoing bookings
     const bookings = await Booking.find({
       $or: [
         { status: "requested" },
