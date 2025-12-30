@@ -408,6 +408,11 @@ export interface IBooking extends Document {
   pickupLocation: { name: string; lat: number; lng: number };
   dropLocation: { name: string; lat: number; lng: number };
 
+  pickupLocationPoint: {
+    type: "Point";
+    coordinates: number[]; // [lng, lat]
+  };
+
   carType: string;
   pricePerDay: number;
   slotTime: string;
@@ -418,14 +423,12 @@ export interface IBooking extends Document {
   preferredGender?: "male" | "female" | null;
   assignedGender?: "male" | "female" | null;
 
-  // ⭐ Instructor (booking-level)
   assignedInstructorId?: mongoose.Types.ObjectId | null;
   instructorName?: string | null;
   instructorPhone?: string | null;
   instructorImage?: string | null;
   instructorVehicleNumber?: string | null;
 
-  // ⭐ Payment
   paid: boolean;
   paymentStatus: "PENDING" | "SUCCESS" | "FAILED";
   paymentTxnRef?: string | null;
@@ -438,6 +441,7 @@ export interface IBooking extends Document {
     | "completed"
     | "cancelled";
 }
+
 
 /* ======================================================
    DAY SCHEMA
