@@ -1,7 +1,8 @@
 // models/Instructor.ts
 import mongoose, { Schema, Document, Model } from "mongoose";
 
-export interface IInstructor extends Document {
+export interface IInstructor extends Omit<Document, "model"> {
+
   fullName: string;
   mobile: string;
 
