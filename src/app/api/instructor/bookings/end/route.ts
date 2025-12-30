@@ -13,38 +13,104 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const instructorId = getInstructorId(req);
-    const { bookingId } = await req.json();
+    const { bookingId, otp } = await req.json();
 
     const instructor = await Instructor.findById(instructorId);
-    const booking = await Booking.findById(bookingId);
+    if (!instructor)
+      return NextResponse.json(buildResponse(false, "Instructor not found"), { status: 200 });
 
-    if (!instructor || !booking)
-      return NextResponse.json(buildResponse(false, "Invalid booking or instructor"), { status: 200 });
+    /* ---------- Fetch booking by _id or bookingId ---------- */
+    let booking: any = null;
 
-    if (booking.instructor?.toString() !== instructorId)
-      return NextResponse.json(buildResponse(false, "Booking not assigned to this driver"), { status: 200 });
+    if (/^[0-9a-fA-F]{24}$/.test(bookingId)) {
+      booking = await Booking.findById(bookingId);
+    }
 
-    if (booking.status !== "started")
-      return NextResponse.json(buildResponse(false, "Trip not in progress"), { status: 200 });
+    if (!booking) {
+      booking = await Booking.findOne({ bookingId });
+    }
 
-    // ===== Complete Trip =====
-    booking.status = "completed";
-    booking.completedAt = new Date();
+    if (!booking)
+      return NextResponse.json(buildResponse(false, "Booking not found"), { status: 200 });
+
+    /* ---------- Instructor Assignment Checks ---------- */
+    if (!booking.assignedInstructorId) {
+      return NextResponse.json(
+        buildResponse(false, "No instructor has accepted this booking yet"),
+        { status: 200 }
+      );
+    }
+
+    if (booking.assignedInstructorId.toString() !== instructorId) {
+      return NextResponse.json(
+        buildResponse(false, "Booking assigned to another instructor"),
+        { status: 200 }
+      );
+    }
+
+    /* ---------- Get today's day session ---------- */
+    const today = new Date().toISOString().split("T")[0];
+
+    const todayDay = booking.days.find(
+      (d: any) => d.date === today
+    );
+
+    if (!todayDay) {
+      return NextResponse.json(
+        buildResponse(false, "No session scheduled for today"),
+        { status: 200 }
+      );
+    }
+
+    /* ---------- Validate session state ---------- */
+    if (todayDay.status !== "started") {
+      return NextResponse.json(
+        buildResponse(false, "Session is not in progress"),
+        { status: 200 }
+      );
+    }
+
+    /* ---------- Validate Drop OTP ---------- */
+    if (todayDay.endOtp !== otp) {
+      return NextResponse.json(
+        buildResponse(false, "Invalid OTP"),
+        { status: 200 }
+      );
+    }
+
+    /* ---------- Complete Day Session ---------- */
+    todayDay.status = "completed";
+    todayDay.completedAt = new Date();
+
+    /* ---------- Check if all days are completed ---------- */
+    const allDone = booking.days.every(
+      (d: any) => d.status === "completed" || d.status === "missed"
+    );
+
+    if (allDone) {
+      booking.status = "completed";
+    } else {
+      booking.status = "ongoing";
+    }
+
     await booking.save();
 
-    instructor.dutyStatus = "online"; // driver free again
+    instructor.dutyStatus = "online";
     await instructor.save();
 
     return NextResponse.json(
-      buildResponse(true, "Trip completed successfully", {
-        bookingId: booking._id,
+      buildResponse(true, "Session completed successfully", {
+        bookingId: booking.bookingId,
+        dayNo: todayDay.dayNo,
+        date: todayDay.date,
+        bookingStatus: booking.status,
         dutyStatus: instructor.dutyStatus
       }),
       { status: 200 }
     );
 
   } catch (e) {
-    console.error("trip end error", e);
+    console.error("session end error", e);
     return NextResponse.json(buildResponse(false, "Server error"), { status: 200 });
   }
 }

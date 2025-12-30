@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const body = await req.json();
 
-    // ---------- REQUIRED ----------
+    /* ---------- REQUIRED FIELDS ---------- */
     const required = [
       "pickupLocation",
       "startDate",
@@ -171,14 +171,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ---------- PRICING ----------
+    /* ---------- PICKUP LOCATION VALIDATION ---------- */
+    const pickup = body.pickupLocation;
+
+    if (
+      !pickup.lat ||
+      !pickup.lng ||
+      typeof pickup.lat !== "number" ||
+      typeof pickup.lng !== "number"
+    ) {
+      return NextResponse.json({
+        success: false,
+        code: "INVALID_LOCATION",
+        message: "pickupLocation must contain valid lat & lng",
+        data: {}
+      }, { status: 200 });
+    }
+
+    const pickupLocationPoint = {
+      type: "Point",
+      coordinates: [pickup.lng, pickup.lat]
+    };
+
+    /* ---------- PRICING ---------- */
     const pricing = await Pricing.findOne({ carType: body.carType });
 
     if (!pricing) {
       return NextResponse.json({
         success: false,
         code: "PRICING_NOT_FOUND",
-        message: "Pricing not found",
+        message: "Pricing not found for selected car type",
         data: {}
       }, { status: 200 });
     }
@@ -186,7 +208,7 @@ export async function POST(req: NextRequest) {
     const pricePerDay = pricing.pricePerDay;
     const gstPercent = pricing.gstPercent || 18;
 
-    // ---------- DATE VALIDATION ----------
+    /* ---------- DATE VALIDATION ---------- */
     const start = new Date(body.startDate);
     const end = new Date(body.endDate);
 
@@ -202,73 +224,68 @@ export async function POST(req: NextRequest) {
     const daysCount =
       Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    // ---------- BASE AMOUNT ----------
+    /* ---------- BASE AMOUNT ---------- */
     const bookingAmount = pricePerDay * daysCount;
     const gst = Math.round((bookingAmount * gstPercent) / 100);
+
     let totalPrice = bookingAmount + gst;
 
-    // ---------- COUPON ----------
-let couponDiscount = 0;
-let couponStatus: "APPLIED" | "INVALID" | "NOT_PROVIDED" = "NOT_PROVIDED";
+    /* ---------- COUPON ---------- */
+    let couponDiscount = 0;
+    let couponStatus: "APPLIED" | "INVALID" | "NOT_PROVIDED" = "NOT_PROVIDED";
 
-if (body.couponCode) {
-  const cleanCode = body.couponCode.trim().toUpperCase();
-  const now = new Date();
+    if (body.couponCode) {
+      const cleanCode = body.couponCode.trim().toUpperCase();
+      const now = new Date();
 
-  // Find coupon without date filter (safer)
-  const coupon = await Coupon.findOne({ code: cleanCode, active: true });
+      const coupon = await Coupon.findOne({ code: cleanCode, active: true });
 
-  if (!coupon) {
-    couponStatus = "INVALID"; // not found / inactive
-  }
-  // Not started yet
-  else if (coupon.from && new Date(coupon.from) > now) {
-    couponStatus = "INVALID";
-  }
-  // Expired
-  else if (coupon.to && new Date(coupon.to) < now) {
-    couponStatus = "INVALID";
-  }
-  // Minimum order not reached
-  else if (bookingAmount < coupon.minAmount) {
-    couponStatus = "INVALID";
-  }
-  else {
-    couponStatus = "APPLIED";
+      if (!coupon) couponStatus = "INVALID";
+      else if (coupon.from && new Date(coupon.from) > now) couponStatus = "INVALID";
+      else if (coupon.to && new Date(coupon.to) < now) couponStatus = "INVALID";
+      else if (bookingAmount < coupon.minAmount) couponStatus = "INVALID";
+      else {
+        couponStatus = "APPLIED";
 
-    // % or flat discount
-    couponDiscount = coupon.isPercent
-      ? Math.round((bookingAmount * coupon.amount) / 100)
-      : coupon.amount;
+        couponDiscount = coupon.isPercent
+          ? Math.round((bookingAmount * coupon.amount) / 100)
+          : coupon.amount;
 
-    // cap discount
-    if (couponDiscount > coupon.maxDiscount) {
-      couponDiscount = coupon.maxDiscount;
+        if (couponDiscount > coupon.maxDiscount)
+          couponDiscount = coupon.maxDiscount;
+
+        totalPrice -= couponDiscount;
+      }
     }
-
-    totalPrice -= couponDiscount;
-  }
-}
-
 
     if (totalPrice < 0) totalPrice = 0;
 
-    // ---------- RESPONSE ----------
+    /* ---------- RESPONSE ---------- */
     return NextResponse.json({
       success: true,
       code: "BOOKING_SUMMARY",
       message: "Booking summary calculated",
       data: {
-        daysCount,
-        pricePerDay,
-        bookingAmount,
-        gst,
-        coupon: {
-          status: couponStatus,
-          discount: couponDiscount
-        },
-        totalPrice,
-        preferredGender: body.preferredGender || null
+        pickupLocation: pickup,
+        pickupLocationPoint,
+        startDate: body.startDate,
+        endDate: body.endDate,
+        slotTime: body.slotTime,
+        carType: body.carType,
+
+        preferredGender: body.preferredGender || null,
+
+        pricing: {
+          pricePerDay,
+          daysCount,
+          bookingAmount,
+          gst,
+          coupon: {
+            status: couponStatus,
+            discount: couponDiscount
+          },
+          totalPrice
+        }
       }
     }, { status: 200 });
 
