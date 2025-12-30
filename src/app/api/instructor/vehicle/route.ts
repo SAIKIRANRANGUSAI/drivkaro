@@ -33,16 +33,17 @@ export async function POST(req: NextRequest) {
     instructor.carType = form.get("carType") as string;
     instructor.fuelType = form.get("fuelType") as string;
     instructor.brand = form.get("brand") as string;
-    instructor.model = form.get("model") as string;
+
+    // 🔹 FIX — use set() to avoid conflict with mongoose .model()
+    instructor.set("model", form.get("model") as string);
+
     instructor.purchaseYear = form.get("purchaseYear") as string;
     instructor.vehicleNumber = form.get("vehicleNumber") as string;
 
-    // ===== Upload RC Book =====
     const rcFile = form.get("rcBook") as File | null;
     if (rcFile)
       instructor.rcBookUrl = await upload(rcFile, "instructors/vehicle/rc");
 
-    // ===== Upload Car Images =====
     const images: string[] = [];
     const files = form.getAll("carImages") as File[];
     for (const f of files) {
