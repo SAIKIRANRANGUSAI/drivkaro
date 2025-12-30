@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const instructorId = getInstructorId(req);
     const { bookingId } = await req.json();
 
-    const instructor = await Instructor.findById(instructorId);
+    const instructor: any = await Instructor.findById(instructorId);
     if (!instructor)
       return NextResponse.json(
         buildResponse(false, "Instructor not found"),
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       );
 
     // -----------------------------
-    // FETCH BOOKING (id or BKxxxx)
+    // FETCH BOOKING
     // -----------------------------
     let booking: any = null;
 
@@ -64,7 +64,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Allow only requested OR unassigned ongoing
     if (!["requested", "ongoing"].includes(booking.status)) {
       return NextResponse.json(
         buildResponse(false, "Booking not available"),
@@ -72,7 +71,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🛡 ATOMIC update — prevents race condition
+    // 🛡 ATOMIC UPDATE
     const updated = await Booking.findOneAndUpdate(
       {
         _id: booking._id,
@@ -83,7 +82,14 @@ export async function POST(req: NextRequest) {
           assignedInstructorId: instructorId,
           instructorName: instructor.fullName || instructor.ownerName || null,
           instructorPhone: instructor.mobile || null,
-          instructorImage: instructor.profileImage || instructor.dlImageFrontUrl || null,
+
+          // ✅ SAFE IMAGE ACCESS (no TS error)
+          instructorImage:
+            instructor.profileImage ||
+            instructor.dlImageFrontUrl ||
+            instructor.image ||
+            null,
+
           instructorVehicleNumber: instructor.vehicleNumber || null,
           status: "accepted"
         }
@@ -98,7 +104,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🚗 Set driver BUSY after accepting
+    // 🚗 DRIVER BUSY
     instructor.dutyStatus = "busy";
     await instructor.save();
 
