@@ -535,25 +535,39 @@ async function applyMissedDaysLogic(bookingId: string) {
   const booking: any = await Booking.findById(bookingId);
   if (!booking) return;
 
+  // Safety — if days missing or invalid, stop
+  if (!Array.isArray(booking.days) || booking.days.length === 0) {
+    booking.days = [];
+    booking.daysCount = 0;
+    await booking.save();
+    return;
+  }
+
+  // Always sync daysCount safely
+  booking.daysCount = booking.days.length;
+
   const today = new Date().toISOString().split("T")[0];
   let changed = false;
 
-  // Mark past pending days as missed
   booking.days.forEach((d: any) => {
-    if (d.date < today && d.status === "pending" && !d.startOtp && !d.endOtp) {
-  d.status = "missed";
-  changed = true;
-}
-
+    if (d?.date < today && d?.status === "pending" && !d?.startOtp && !d?.endOtp) {
+      d.status = "missed";
+      changed = true;
+    }
   });
 
-  // Count missed and add extra days if needed
-  const missedCount = booking.days.filter((d: any) => d.status === "missed").length;
+  const missedCount = booking.days.filter((d: any) => d?.status === "missed").length;
   const extraNeeded = Math.min(missedCount, 10);
 
   if (extraNeeded > 0 && changed) {
-    let nextDate = new Date(booking.days[booking.days.length - 1].date);
+    const lastDay = booking.days[booking.days.length - 1];
+
+    // Safety — avoid Invalid Date
+    if (!lastDay?.date) return;
+
+    let nextDate = new Date(lastDay.date);
     nextDate.setDate(nextDate.getDate() + 1);
+
     for (let i = 0; i < extraNeeded; i++) {
       booking.days.push({
         dayNo: booking.days.length + 1,
@@ -566,9 +580,12 @@ async function applyMissedDaysLogic(bookingId: string) {
       });
       nextDate.setDate(nextDate.getDate() + 1);
     }
+
+    booking.daysCount = booking.days.length; // keep synced
     await booking.save();
   }
 }
+
 
 /* ======================================================
    GET BOOKINGS (ONGOING / COMPLETED / PENDING / CANCELLED)
@@ -742,13 +759,25 @@ export async function GET(req: NextRequest) {
     // Apply filters
     let filtered = transformedBookings;
     if (status === "ongoing")
-      filtered = filtered.filter((b: any) =>
-        b.days.some((d: any) => d.status !== "completed" && d.status !== "missed")
-      );
+  filtered = filtered.filter((b: any) =>
+    Array.isArray(b.days) &&
+    b.days.some((d: any) =>
+      d?.status !== "completed" &&
+      d?.status !== "missed"
+    )
+  );
+
     if (status === "completed")
-      filtered = filtered.filter((b: any) =>
-        b.days.every((d: any) => d.status === "completed" || d.status === "missed")
-      );
+  filtered = filtered.filter((b: any) => {
+    if (!Array.isArray(b.days) || b.days.length === 0) return false;
+
+    return b.days.every(
+      (d: any) =>
+        d?.status === "completed" ||
+        d?.status === "missed"
+    );
+  });
+
     if (status === "pending")
       filtered = filtered.filter((b: any) => b.status === "pending");
     if (status === "cancelled")
