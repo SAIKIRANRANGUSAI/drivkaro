@@ -410,7 +410,7 @@ export interface IBooking extends Document {
 
   pickupLocationPoint: {
     type: "Point";
-    coordinates: number[]; // [lng, lat]
+    coordinates: number[];
   };
 
   carType: string;
@@ -429,10 +429,17 @@ export interface IBooking extends Document {
   instructorImage?: string | null;
   instructorVehicleNumber?: string | null;
 
+  // ⭐ PAYMENT STATE
   paid: boolean;
   paymentStatus: "PENDING" | "SUCCESS" | "FAILED";
   paymentTxnRef?: string | null;
   paymentVerifiedAt?: Date | null;
+
+  // ⭐ PRICING (MUST MATCH SCHEMA)
+  amount: number;        // base before GST
+  gst: number;
+  totalAmount: number;   // final payable
+  discount: number;
 
   status:
     | "pending"
