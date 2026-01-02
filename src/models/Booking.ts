@@ -547,6 +547,13 @@ const BookingSchema = new Schema<IBooking>(
     paymentTxnRef: { type: String, default: null },
     paymentVerifiedAt: { type: Date, default: null },
 
+    // ⭐ Pricing — required for payments
+amount: { type: Number, default: 0 },        // base amount before GST
+gst: { type: Number, default: 0 },
+totalAmount: { type: Number, default: 0 },   // final payable amount
+discount: { type: Number, default: 0 },
+
+
     status: {
       type: String,
       enum: [

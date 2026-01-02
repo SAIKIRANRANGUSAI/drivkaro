@@ -801,22 +801,163 @@ export async function GET(req: NextRequest) {
 /* ======================================================
    CREATE BOOKING — ONLY ONE ACTIVE ALLOWED
 ====================================================== */
+// export async function POST(req: Request) {
+//   try {
+//     await connectDB();
+//     const body = await req.json();
+//     const userId = getUserIdFromToken(req);
+//     if (!userId)
+//       return NextResponse.json({
+//         success: false,
+//         message: "Unauthorized",
+//         data: {}
+//       }, { status: 401 });
+
+//     // Check for existing active booking
+//     const existingActive = await Booking.findOne({ userId }).lean();
+//     if (existingActive) {
+//       const hasActiveDays = existingActive.days.some(
+//         (d: any) => d.status === "pending" || d.status === "started"
+//       );
+//       if (hasActiveDays) {
+//         return NextResponse.json({
+//           success: false,
+//           message: "You already have an active booking. Complete or cancel it first.",
+//           data: {}
+//         });
+//       }
+//     }
+
+//     const required = [
+//       "pickupLocation",
+//       "startDate",
+//       "endDate",
+//       "carType",
+//       "slotTime"
+//     ];
+//     for (const f of required)
+//       if (!body[f])
+//         return NextResponse.json({
+//           success: false,
+//           message: `${f} is required`,
+//           data: {}
+//         }, { status: 400 });
+
+//     const pickup = body.pickupLocation;
+//     const dropLocation = body.dropLocation || pickup; // Same if not provided
+//     const pricing = await Pricing.findOne({ carType: body.carType });
+//     if (!pricing)
+//       return NextResponse.json({
+//         success: false,
+//         message: "Pricing not found for selected car type",
+//         data: {}
+//       }, { status: 404 });
+
+//     // Generate days
+//     const days: any[] = [];
+//     let cur = new Date(body.startDate);
+//     const end = new Date(body.endDate);
+//     let no = 1;
+//     while (cur <= end) {
+//       days.push({
+//         dayNo: no,
+//         date: cur.toISOString().split("T")[0],
+//         slot: body.slotTime,
+//         status: "pending",
+//         startOtp: null,
+//         endOtp: null,
+//         instructorId: null
+//       });
+//       cur.setDate(cur.getDate() + 1);
+//       no++;
+//     }
+
+//     // const booking = await Booking.create({
+//     //   userId,
+//     //   bookingId: "BK" + Date.now() + Math.floor(Math.random() * 1000), // Unique ID
+//     //   pickupLocation: pickup,
+//     //   dropLocation,
+//     //   carType: body.carType,
+//     //   pricePerDay: pricing.pricePerDay,
+//     //   slotTime: body.slotTime,
+//     //   daysCount: days.length,
+//     //   days,
+//     //   amount: 0, // Will be updated after payment
+//     //   gst: 0,
+//     //   totalAmount: 0,
+//     //   discount: 0,
+//     //   status: "pending"
+//     // });
+//   const pricingData = body.pricing || {};
+
+//   const booking = await Booking.create({
+//   userId,
+//   bookingId: "BK" + Date.now() + Math.floor(Math.random() * 1000),
+
+//   pickupLocation: pickup,
+//   dropLocation,
+
+//   // ⭐ REQUIRED — GeoJSON field used for nearby search
+//   pickupLocationPoint: {
+//     type: "Point",
+//     coordinates: [pickup.lng, pickup.lat]   // [lng, lat]
+//   },
+
+//   carType: body.carType,
+//   pricePerDay: pricing.pricePerDay,
+//   slotTime: body.slotTime,
+//   daysCount: days.length,
+//   days,
+
+//   preferredGender: body.preferredGender || null,
+
+//   amount: pricingData.bookingAmount || 0,
+// gst: pricingData.gst || 0,
+// totalAmount: pricingData.totalPrice || 0,
+// discount: pricingData.coupon?.discount || 0,
+// status: "pending"
+
+// });
+
+
+//     // Send notification
+//     await sendPushNotification(userId, "Booking Created", `Your booking ${booking.bookingId} has been placed successfully.`);
+
+//     return NextResponse.json({
+//       success: true,
+//       message: "Booking created successfully",
+//       data: booking
+//     });
+//   } catch (err) {
+//     console.error("BOOKING CREATE ERROR:", err);
+//     return NextResponse.json({
+//       success: false,
+//       message: "Server error",
+//       data: {}
+//     }, { status: 500 });
+//   }
+// }
+
+/* ======================================================
+   CREATE BOOKING — ONLY ONE ACTIVE ALLOWED
+====================================================== */
 export async function POST(req: Request) {
   try {
     await connectDB();
     const body = await req.json();
     const userId = getUserIdFromToken(req);
-    if (!userId)
-      return NextResponse.json({
-        success: false,
-        message: "Unauthorized",
-        data: {}
-      }, { status: 401 });
 
-    // Check for existing active booking
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized", data: {} },
+        { status: 401 }
+      );
+    }
+
+    // Check existing active booking
     const existingActive = await Booking.findOne({ userId }).lean();
     if (existingActive) {
-      const hasActiveDays = existingActive.days.some(
+      const hasActiveDays = existingActive.days?.some(
         (d: any) => d.status === "pending" || d.status === "started"
       );
       if (hasActiveDays) {
@@ -828,39 +969,40 @@ export async function POST(req: Request) {
       }
     }
 
-    const required = [
-      "pickupLocation",
-      "startDate",
-      "endDate",
-      "carType",
-      "slotTime"
-    ];
-    for (const f of required)
-      if (!body[f])
-        return NextResponse.json({
-          success: false,
-          message: `${f} is required`,
-          data: {}
-        }, { status: 400 });
+    // Required fields
+    const required = ["pickupLocation","startDate","endDate","carType","slotTime"];
+    for (const f of required) {
+      if (!body[f]) {
+        return NextResponse.json(
+          { success: false, message: `${f} is required`, data: {} },
+          { status: 400 }
+        );
+      }
+    }
 
     const pickup = body.pickupLocation;
-    const dropLocation = body.dropLocation || pickup; // Same if not provided
-    const pricing = await Pricing.findOne({ carType: body.carType });
-    if (!pricing)
-      return NextResponse.json({
-        success: false,
-        message: "Pricing not found for selected car type",
-        data: {}
-      }, { status: 404 });
+    const dropLocation = body.dropLocation || pickup;
 
-    // Generate days
+    const pricing = await Pricing.findOne({ carType: body.carType });
+    if (!pricing) {
+      return NextResponse.json(
+        { success: false, message: "Pricing not found", data: {} },
+        { status: 404 }
+      );
+    }
+
+    // ⭐️ take values from summary payload
+    const pricingData = body.pricing || {};
+
+    // Build days array
     const days: any[] = [];
     let cur = new Date(body.startDate);
     const end = new Date(body.endDate);
     let no = 1;
+
     while (cur <= end) {
       days.push({
-        dayNo: no,
+        dayNo: no++,
         date: cur.toISOString().split("T")[0],
         slot: body.slotTime,
         status: "pending",
@@ -869,72 +1011,61 @@ export async function POST(req: Request) {
         instructorId: null
       });
       cur.setDate(cur.getDate() + 1);
-      no++;
     }
 
-    // const booking = await Booking.create({
-    //   userId,
-    //   bookingId: "BK" + Date.now() + Math.floor(Math.random() * 1000), // Unique ID
-    //   pickupLocation: pickup,
-    //   dropLocation,
-    //   carType: body.carType,
-    //   pricePerDay: pricing.pricePerDay,
-    //   slotTime: body.slotTime,
-    //   daysCount: days.length,
-    //   days,
-    //   amount: 0, // Will be updated after payment
-    //   gst: 0,
-    //   totalAmount: 0,
-    //   discount: 0,
-    //   status: "pending"
-    // });
-
+    // ⭐️ CREATE BOOKING WITH PRICING VALUES
     const booking = await Booking.create({
-  userId,
-  bookingId: "BK" + Date.now() + Math.floor(Math.random() * 1000),
+      userId,
+      bookingId: "BK" + Date.now() + Math.floor(Math.random() * 1000),
 
-  pickupLocation: pickup,
-  dropLocation,
+      pickupLocation: pickup,
+      dropLocation,
 
-  // ⭐ REQUIRED — GeoJSON field used for nearby search
-  pickupLocationPoint: {
-    type: "Point",
-    coordinates: [pickup.lng, pickup.lat]   // [lng, lat]
-  },
+      pickupLocationPoint: {
+        type: "Point",
+        coordinates: [pickup.lng, pickup.lat]
+      },
 
-  carType: body.carType,
-  pricePerDay: pricing.pricePerDay,
-  slotTime: body.slotTime,
-  daysCount: days.length,
-  days,
+      carType: body.carType,
+      pricePerDay: pricing.pricePerDay,
+      slotTime: body.slotTime,
+      daysCount: days.length,
+      days,
 
-  preferredGender: body.preferredGender || null,
+      preferredGender: body.preferredGender || null,
 
-  amount: 0,
-  gst: 0,
-  totalAmount: 0,
-  discount: 0,
-  status: "pending"
-});
+      // ====== IMPORTANT FIELDS (USED BY PAYMENTS) ======
+      amount: pricingData.bookingAmount ?? 0,
+      gst: pricingData.gst ?? 0,
+      totalAmount: pricingData.totalPrice ?? 0,
+      discount: pricingData.coupon?.discount ?? 0,
 
+      status: "pending",
+      paymentStatus: "PENDING",
+      paid: false
+    });
 
-    // Send notification
-    await sendPushNotification(userId, "Booking Created", `Your booking ${booking.bookingId} has been placed successfully.`);
+    await sendPushNotification(
+      userId,
+      "Booking Created",
+      `Your booking ${booking.bookingId} has been placed successfully.`
+    );
 
     return NextResponse.json({
       success: true,
       message: "Booking created successfully",
       data: booking
     });
+
   } catch (err) {
     console.error("BOOKING CREATE ERROR:", err);
-    return NextResponse.json({
-      success: false,
-      message: "Server error",
-      data: {}
-    }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: "Server error", data: {} },
+      { status: 500 }
+    );
   }
 }
+
 
 /* ======================================================
    CANCEL ALL BOOKINGS (SINCE ONLY ONE)
@@ -950,6 +1081,9 @@ export async function DELETE(req: Request) {
         data: null
       }, { status: 401 });
 
+    
+
+    
     const booking = await Booking.findOne({ userId, status: { $ne: "cancelled" } });
     if (!booking)
       return NextResponse.json({
