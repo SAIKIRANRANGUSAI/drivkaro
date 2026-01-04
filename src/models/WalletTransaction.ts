@@ -12,19 +12,20 @@ const WalletTransactionSchema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     amount: { type: Number, required: true },
+
+    // CREDIT = referral / refunds
+    // DEBIT = booking payment
     type: {
       type: String,
       enum: ["REFERRAL_BONUS", "BOOKING_PAYMENT", "REFUND"],
-      required: true,
+      required: true
     },
+
     referenceId: { type: String },
-    remark: { type: String },
+    remark: { type: String }
   },
   { timestamps: true }
 );
 
 export default mongoose.models.WalletTransaction ||
-  mongoose.model<IWalletTransaction>(
-    "WalletTransaction",
-    WalletTransactionSchema
-  );
+  mongoose.model<IWalletTransaction>("WalletTransaction", WalletTransactionSchema);

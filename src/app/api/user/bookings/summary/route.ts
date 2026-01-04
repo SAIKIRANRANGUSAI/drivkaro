@@ -266,14 +266,14 @@ export async function POST(req: NextRequest) {
       code: "BOOKING_SUMMARY",
       message: "Booking summary calculated",
       data: {
-        pickupLocation: pickup,
-        pickupLocationPoint,
-        startDate: body.startDate,
-        endDate: body.endDate,
-        slotTime: body.slotTime,
-        carType: body.carType,
+        // pickupLocation: pickup,
+        // pickupLocationPoint,
+        // startDate: body.startDate,
+        // endDate: body.endDate,
+        // slotTime: body.slotTime,
+        // carType: body.carType,
 
-        preferredGender: body.preferredGender || null,
+        // preferredGender: body.preferredGender || null,
 
         pricing: {
           pricePerDay,

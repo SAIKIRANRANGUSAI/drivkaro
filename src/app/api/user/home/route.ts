@@ -156,6 +156,171 @@
 // }
 
 
+// import { NextRequest, NextResponse } from "next/server";
+// import connectDB from "@/lib/mongoose";
+// import Booking from "@/models/Booking";
+// import User from "@/models/User";
+// import LearningConfig from "@/models/LearningConfig";
+// import { verifyAccessToken } from "@/lib/jwt";
+
+// function getUserIdFromToken(req: Request) {
+//   const h = req.headers.get("authorization");
+//   if (!h?.startsWith("Bearer ")) return null;
+//   try {
+//     return (verifyAccessToken(h.split(" ")[1]) as any).userId;
+//   } catch {
+//     return null;
+//   }
+// }
+
+// function getGreeting() {
+//   const hour = new Date().getHours();
+//   if (hour < 12) return "Good Morning";
+//   if (hour < 17) return "Good Afternoon";
+//   return "Good Evening";
+// }
+
+// export async function GET(req: NextRequest) {
+//   try {
+//     await connectDB();
+
+//     const userId = getUserIdFromToken(req);
+//     if (!userId)
+//       return NextResponse.json(
+//         { success: false, message: "Unauthorized", data: {} },
+//         { status: 401 }
+//       );
+
+//     const user = await User.findById(userId).lean();
+//     if (!user)
+//       return NextResponse.json(
+//         { success: false, message: "User not found", data: {} },
+//         { status: 404 }
+//       );
+
+//     const today = new Date().toISOString().split("T")[0];
+
+//     // 🔹 Load LearningConfig (fallback values if not found)
+//     const config =
+//       (await LearningConfig.findOne().lean()) || {
+//         perDayKmLimit: 10,
+//         totalLearningKm: 40,
+//       };
+
+//     const perDayKm = config.perDayKmLimit || 10;
+//     const totalKm = config.totalLearningKm || 40;
+
+//     // ================= TODAY — MY SCHEDULE =================
+//     const myBooking = await Booking.findOne({
+//       userId,
+//       status: { $in: ["pending", "ongoing"] },
+//       "days.date": today,
+//     }).lean();
+
+//     let todayMySchedule = {
+//       bookingId: "",
+//       label: "",
+//       dayNo: 0,
+//       totalDays: 0,
+//       todayKms: 0,
+//       totalKms: 0,
+//       remainingKms: 0,
+//       remainingDays: 0,
+//       scheduleEnd: "",
+//       carType: "",
+//       status: "",
+//     };
+
+//     // if (myBooking) {
+//     //   const todayEntry = myBooking.days.find((d: any) => d.date === today);
+//     //   const dayNo = todayEntry?.dayNo || 0;
+//     //   const totalDays = myBooking.daysCount || myBooking.days?.length || 0;
+
+//     //   // 🔢 Distance calculations
+//     //   const calculatedTotalKms = dayNo * perDayKm;
+//     //   const remainingKms = Math.max(totalKm - calculatedTotalKms, 0);
+//     //   const remainingDays = Math.max(totalDays - dayNo, 0);
+
+//     //   todayMySchedule = {
+//     //     bookingId: myBooking.bookingId,
+//     //     label: `Day ${dayNo}`,
+//     //     dayNo,
+//     //     totalDays,
+//     //     todayKms: perDayKm,
+//     //     totalKms: calculatedTotalKms,
+//     //     remainingKms,
+//     //     remainingDays,
+//     //     scheduleEnd: myBooking.days?.at(-1)?.date || "",
+//     //     carType: myBooking.carType || "",
+//     //     status: todayEntry?.status || "pending",
+//     //   };
+//     // }
+//     if (myBooking) {
+//   const todayEntry = myBooking.days.find((d: any) => d.date === today);
+//   const dayNo = todayEntry?.dayNo || 0;
+
+//   // Use actual days length because missed days add extra days
+//   const totalDays = myBooking.days?.length || myBooking.daysCount || 0;
+
+//   // 🔹 Completed days count
+//   const completedDays = myBooking.days.filter(
+//     (d: any) => d.status === "completed"
+//   ).length;
+
+//   // 🔹 Progress percentage
+//   const progressPercent =
+//     totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
+
+//   // 🔢 Distance calculations
+//   const calculatedTotalKms = dayNo * perDayKm;
+//   const remainingKms = Math.max(totalKm - calculatedTotalKms, 0);
+//   const remainingDays = Math.max(totalDays - dayNo, 0);
+
+//   todayMySchedule = {
+//     bookingId: myBooking.bookingId,
+//     label: `Day ${dayNo}`,
+//     dayNo,
+//     totalDays,
+//     todayKms: perDayKm,
+//     totalKms: calculatedTotalKms,
+//     remainingKms,
+//     remainingDays,
+//     scheduleEnd: myBooking.days?.at(-1)?.date || "",
+//     carType: myBooking.carType || "",
+//     status: todayEntry?.status || "pending",
+
+//     // 🆕 Added
+//     completedDays,
+//     progressPercent,
+//   };
+// }
+
+
+//     return NextResponse.json(
+//       {
+//         success: true,
+//         message: "Home data fetched",
+//         data: {
+//           greeting: getGreeting(),
+//           user: {
+//             name: user.fullName || user.name || "",
+//             walletAmount: user.wallet || 0,
+//           },
+//           todayMySchedule,
+//         },
+//       },
+//       { status: 200 }
+//     );
+//   } catch (err) {
+//     console.error("HOME API ERROR:", err);
+//     return NextResponse.json(
+//       { success: false, message: "Server error", data: {} },
+//       { status: 500 }
+//     );
+//   }
+// }
+
+
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Booking from "@/models/Booking";
@@ -163,9 +328,11 @@ import User from "@/models/User";
 import LearningConfig from "@/models/LearningConfig";
 import { verifyAccessToken } from "@/lib/jwt";
 
+// 🔐 Get user from Bearer token only
 function getUserIdFromToken(req: Request) {
   const h = req.headers.get("authorization");
   if (!h?.startsWith("Bearer ")) return null;
+
   try {
     return (verifyAccessToken(h.split(" ")[1]) as any).userId;
   } catch {
@@ -185,22 +352,24 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const userId = getUserIdFromToken(req);
-    if (!userId)
+    if (!userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized", data: {} },
         { status: 401 }
       );
+    }
 
     const user = await User.findById(userId).lean();
-    if (!user)
+    if (!user) {
       return NextResponse.json(
         { success: false, message: "User not found", data: {} },
         { status: 404 }
       );
+    }
 
     const today = new Date().toISOString().split("T")[0];
 
-    // 🔹 Load LearningConfig (fallback values if not found)
+    // 🔹 Load Learning Config or defaults
     const config =
       (await LearningConfig.findOne().lean()) || {
         perDayKmLimit: 10,
@@ -229,12 +398,25 @@ export async function GET(req: NextRequest) {
       scheduleEnd: "",
       carType: "",
       status: "",
+      completedDays: 0,
+      progressPercent: 0,
     };
 
     if (myBooking) {
       const todayEntry = myBooking.days.find((d: any) => d.date === today);
       const dayNo = todayEntry?.dayNo || 0;
-      const totalDays = myBooking.daysCount || myBooking.days?.length || 0;
+
+      // Missed → extra days added, so use actual length
+      const totalDays = myBooking.days?.length || myBooking.daysCount || 0;
+
+      // 🔹 Count completed days only
+      const completedDays = myBooking.days.filter(
+        (d: any) => d.status === "completed"
+      ).length;
+
+      // 🔹 Progress percentage
+      const progressPercent =
+        totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
 
       // 🔢 Distance calculations
       const calculatedTotalKms = dayNo * perDayKm;
@@ -253,6 +435,8 @@ export async function GET(req: NextRequest) {
         scheduleEnd: myBooking.days?.at(-1)?.date || "",
         carType: myBooking.carType || "",
         status: todayEntry?.status || "pending",
+        completedDays,
+        progressPercent,
       };
     }
 

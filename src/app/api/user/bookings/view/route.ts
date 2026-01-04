@@ -142,15 +142,23 @@ export async function GET(req: NextRequest) {
        INSTRUCTOR (BOOKING-LEVEL)
     ======================================================= */
     const instructor = booking.assignedInstructorId
-      ? {
-          id: booking.assignedInstructorId,
-          name: booking.instructorName,
-          phone: booking.instructorPhone,
-          vehicleNumber: booking.instructorVehicleNumber,
-          image: booking.instructorImage,
-          assigned: true
-        }
-      : { assigned: false, message: "Instructor will be assigned soon" };
+  ? {
+      id: booking.assignedInstructorId,
+      name: booking.instructorName,
+      phone: booking.instructorPhone,
+      vehicleNumber: booking.instructorVehicleNumber,
+      image: booking.instructorImage,
+      assigned: true
+    }
+  : {
+      assigned: false,
+      id: null,
+      name: null,
+      phone: null,
+      vehicleNumber: null,
+      image: null
+    };
+
 
     /* ======================================================
        DAYS LIST — CLEAN RESPONSE
